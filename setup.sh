@@ -6,7 +6,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 
 # 1. Python environment (on the persistent home disk)
 ENV=$HOME/conda-envs/lfbook
-[ -x "$ENV/bin/jupyter-book" ] || mamba env create -q -p "$ENV" -f "$HERE/environment.yml"
+CONDA=$(command -v mamba || command -v conda)
+[ -x "$ENV/bin/jupyter-book" ] || "$CONDA" env create -q -p "$ENV" -f "$HERE/environment.yml"
 
 # 2. WMH-SynthSeg code: same repository and commit as the original Colab runs
 REPO=$HOME/wmh
