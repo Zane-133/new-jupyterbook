@@ -7,4 +7,4 @@ paths:
   wmh_model: ~/wmh_model/WMH-SynthSeg_v10_231110.pth          # model weights (setup.sh)
 
 freesurfer_module: freesurfer/8.0.0
-threads: 8          # SynthSeg / SynthMorph CPU threads, as in the original scripts
+threads: 24         # SynthSeg / SynthMorph CPU threads (original scripts: 8; only affects speed)
