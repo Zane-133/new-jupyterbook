@@ -1,0 +1,10 @@
+format: jb-book
+root: 00_intro
+parts:
+  - chapters:
+      - file: 01_data_preprocess
+      - file: 02_segmentation
+      - file: 03_registration_dice
+      - file: 04_volume_stability
+      - file: 05_new_dataset
+      - file: 06_summary

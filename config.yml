@@ -1,0 +1,10 @@
+# Paths on Neurodesk. Every chapter reads them through common.py; no paths in the chapters.
+paths:
+  data:      ~/neurodesktop-storage/neurodesk_upload          # old/  new/  freesurfer/
+  results:   ~/neurodesktop-storage/results                   # everything the book computes
+  license:   ~/neurodesktop-storage/neurodesk_upload/freesurfer/license.txt
+  wmh_repo:  ~/wmh                                            # WMH-SynthSeg code (setup.sh)
+  wmh_model: ~/wmh_model/WMH-SynthSeg_v10_231110.pth          # model weights (setup.sh)
+
+freesurfer_module: freesurfer/8.0.0
+threads: 8          # SynthSeg / SynthMorph CPU threads, as in the original scripts

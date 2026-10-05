@@ -1,0 +1,15 @@
+# build output and execution cache
+_build/
+
+# .md is the source; .ipynb copies are for interactive debugging only
+*.ipynb
+.ipynb_checkpoints/
+
+# no imaging data or results in the repository
+*.nii
+*.nii.gz
+*.lta
+*.zip
+
+.DS_Store
+__pycache__/

@@ -1,0 +1,34 @@
+title: Metrics for AI Image Enhancement — Volume as a Starting Point
+author: Guokai Zhen
+copyright: "2026"
+logo: ""
+
+only_build_toc_files: true
+
+# .md files are the source; .ipynb copies made for interactive debugging are not built
+exclude_patterns:
+  - "*.ipynb"
+  - _build
+  - README.md
+
+execute:
+  # cache: a chapter is re-executed only when its code changes
+  execute_notebooks: cache
+  # no time limit: segmentation and registration take hours
+  timeout: -1
+  # stop on the first error instead of producing a book with wrong numbers
+  allow_errors: false
+
+parse:
+  myst_enable_extensions:
+    - dollarmath
+    - colon_fence
+    - deflist
+
+html:
+  use_issues_button: false
+  use_repository_button: false
+
+sphinx:
+  config:
+    numfig: true
