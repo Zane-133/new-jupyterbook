@@ -27,8 +27,7 @@ def sh(cmd, log=None, cwd=None, show=True):
         Path(log).parent.mkdir(parents=True, exist_ok=True)
     fh = open(log, "a") if log else None
     tail = deque(maxlen=30)
-    env = os.environ | {"PYTHONUNBUFFERED": "1"}      # Python tools: write output line by line
-    p = subprocess.Popen(["bash", "-lc", cmd], cwd=cwd, env=env, stdout=subprocess.PIPE,
+    p = subprocess.Popen(["bash", "-lc", cmd], cwd=cwd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, bufsize=1)
     for line in p.stdout:
         tail.append(line)
