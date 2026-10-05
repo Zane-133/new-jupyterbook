@@ -7,7 +7,14 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # 1. Python environment (on the persistent home disk)
 ENV=$HOME/conda-envs/lfbook
 CONDA=$(command -v mamba || command -v conda)
-[ -x "$ENV/bin/jupyter-book" ] || "$CONDA" env create -y -q -p "$ENV" -f "$HERE/environment.yml"
+[ -x "$ENV/bin/python" ] || "$CONDA" env create -y -q -p "$ENV" -f "$HERE/environment.yml"
+# pip packages. torch (with CUDA libraries) is several GB: no pip cache, and unpack on the
+# home disk instead of /tmp, so the install does not run out of memory.
+TMP=$HOME/.pip-tmp
+mkdir -p "$TMP"
+"$ENV/bin/python" -c "import torch" 2>/dev/null || TMPDIR=$TMP "$ENV/bin/pip" install --no-cache-dir -q torch
+[ -x "$ENV/bin/jupyter-book" ] || TMPDIR=$TMP "$ENV/bin/pip" install --no-cache-dir -q "jupyter-book<2"   # v2 drops _config.yml / _toc.yml
+rm -rf "$TMP"
 
 # 2. WMH-SynthSeg code: same repository and commit as the original Colab runs
 REPO=$HOME/wmh

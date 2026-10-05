@@ -16,6 +16,4 @@ dependencies:
   - pyyaml
   - jupytext
   - pip
-  - pip:
-      - "jupyter-book<2"      # v2 drops _config.yml / _toc.yml
-      - torch                 # PyPI Linux wheel includes CUDA
+# jupyter-book and torch are installed with pip by setup.sh (torch is several GB)
