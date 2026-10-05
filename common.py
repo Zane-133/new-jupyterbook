@@ -25,7 +25,7 @@ def sh(cmd, log=None, cwd=None, show=True):
     the notebook (only the last lines are printed if the command fails). Stop on failure."""
     if log:
         Path(log).parent.mkdir(parents=True, exist_ok=True)
-    fh = open(log, "a") if log else None
+    fh = open(log, "a", buffering=1) if log else None      # line-buffered: the log is always current
     tail = deque(maxlen=30)
     env = os.environ | {"PYTHONUNBUFFERED": "1"}      # Python tools: write output line by line
     p = subprocess.Popen(["bash", "-lc", cmd], cwd=cwd, env=env, stdout=subprocess.PIPE,
