@@ -1,5 +1,4 @@
 """Paths and command runners shared by all chapters. No analysis code here."""
-import json
 import os
 import subprocess
 from collections import deque
@@ -9,11 +8,7 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 CFG = yaml.safe_load((HERE / "config.yml").read_text())
-P = {k: Path(v) for k, v in CFG["paths"].items()}
-
-# Every chapter runs in a new kernel: reload the Neurodesk environment set up in Chapter 01
-if P["neurodesk_env"].exists():
-    os.environ.update(json.loads(P["neurodesk_env"].read_text()))
+P = {k: Path(os.path.expanduser(v)) for k, v in CFG["paths"].items()}
 
 SUBJECTS = CFG["subjects"]
 RESULTS = P["results"] if SUBJECTS == "all" else P["results"].with_name(P["results"].name + "_test")
@@ -21,7 +16,21 @@ DATA, WORK = P["data"], P["work"]
 OLD_RAW, NEW_RAW = DATA / "old", DATA / "new"
 OLD_OUT, NEW_OUT = RESULTS / "old", RESULTS / "new"
 LOGS = RESULTS / "logs"
-THREADS = os.cpu_count()
+
+
+def cpu_limit():
+    """CPUs this container may use. os.cpu_count() reports the whole server (16 on an
+    8-CPU Neurodesk session), so read the cgroup quota first."""
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota != "max":
+            return max(1, int(quota) // int(period))
+    except (OSError, ValueError):
+        pass
+    return os.cpu_count()
+
+
+THREADS = cpu_limit()
 
 # Same as typing `ml freesurfer/8.0.0` and `export FS_LICENSE=...` in a Neurodesk terminal
 FS_INIT = f"module load {CFG['freesurfer_module']} && export FS_LICENSE={P['license']}"

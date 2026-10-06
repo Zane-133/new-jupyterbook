@@ -27,7 +27,7 @@ REG = OLD_OUT / 'reg'
 
 ## Register and save
 
-Each `.lta` is written to Drive as soon as it is computed; existing ones are skipped.
+Each `.lta` is written to the results folder as soon as it is computed; existing ones are skipped.
 
 ```{code-cell} ipython3
 for acq in ['lowres', 'highres']:

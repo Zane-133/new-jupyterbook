@@ -13,7 +13,7 @@ kernelspec:
 
 # Input
 
-Unzip the data, list every scan in a **scan table**, and pair each LF scan with its HF scan in a
+List every scan in a **scan table**, and pair each LF scan with its HF scan in a
 **pair table**. All later chapters read these tables instead of searching for files.
 
 ```{code-cell} ipython3
@@ -21,17 +21,7 @@ import re
 
 import pandas as pd
 
-from common import P, DATA, OLD_RAW, OLD_OUT, SUBJECTS, seg_path, sh
-```
-
-## Unzip
-
-From Drive to the Colab disk. Skipped if already unzipped in this runtime.
-
-```{code-cell} ipython3
-if not DATA.exists():
-    sh(f"unzip -q {P['zip']} -d {DATA.parent}")
-assert P['license'].is_file(), f"FreeSurfer licence not found: {P['license']}"
+from common import OLD_RAW, OLD_OUT, SUBJECTS, seg_path
 ```
 
 ## Old dataset — scan table

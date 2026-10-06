@@ -3,7 +3,8 @@ _build/
 
 # .md is the source; .ipynb copies are for interactive debugging only
 *.ipynb
-!colab_run.ipynb
+# opened in Colab from Appendix A
+!appendix_wmh_colab.ipynb
 .ipynb_checkpoints/
 
 # no imaging data or results in the repository

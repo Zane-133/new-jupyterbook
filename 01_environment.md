@@ -13,74 +13,46 @@ kernelspec:
 
 # Environment
 
-Install the tools, then check that each one works. Installed tools stay on the Colab disk until
-the runtime ends; on a re-run in the same runtime the installs are skipped.
+The book runs on Neurodesk (8 CPUs, 32 GB RAM, no GPU). Nothing is installed here: FreeSurfer
+comes from the Neurodesk module, the Python packages from the `lfbook` environment. The cells
+below check that the tools and the input data are in place; later chapters assume they are.
 
 ```{code-cell} ipython3
-import json
-import os
-import subprocess
 import sys
+from pathlib import Path
 
-import torch
+from common import P, OLD_RAW, RESULTS, THREADS, fs
 
-from common import P, fs, sh
+for k, v in P.items():
+    print(f'{k:12s} {v}')
+print(f"{'results now':12s} {RESULTS}")
 ```
 
-## Install
-
-**Neurodesk** (official Colab setup, several minutes): FreeSurfer 8.0.0 with SynthSeg,
-SynthMorph and `mri_vol2vol`. The environment it sets up is saved to a file, which every later
-chapter reloads through `common.py`.
+**Resources.** CPU and memory limits of this Neurodesk session. SynthSeg and SynthMorph use
+all CPUs.
 
 ```{code-cell} ipython3
-if not P['neurodesk_env'].exists():
-    setup = '/content/googlecolab_setup.sh'
-    subprocess.run(['curl', '-fsSL', 'https://raw.githubusercontent.com/NeuroDesk/neurocommand/main/googlecolab_setup.sh',
-                    '-o', setup], check=True)
-    with open('/content/neurodesk-setup.log', 'w') as log:
-        r = subprocess.run(['bash', setup], env=dict(os.environ, NEURODESK_COLAB_PYTHON=sys.executable),
-                           stdout=log, stderr=subprocess.STDOUT)
-    if r.returncode:
-        print(open('/content/neurodesk-setup.log').read()[-6000:])
-        r.check_returncode()
-os.environ.update(json.loads(P['neurodesk_env'].read_text()))
-print('Neurodesk ready')
+mem = Path('/sys/fs/cgroup/memory.max').read_text().strip()
+print('python', sys.executable)
+print(f'{THREADS} CPUs | memory limit', mem if mem == 'max' else f'{int(mem) / 1e9:.0f} GB')
 ```
 
-**Python packages** not included in Colab.
+**FreeSurfer.** SynthSeg, SynthMorph and `mri_vol2vol` from the FreeSurfer 8.0.0 module.
 
 ```{code-cell} ipython3
-sh(f'{sys.executable} -m pip install -q nibabel')
+assert P['license'].is_file(), f"FreeSurfer licence not found: {P['license']}"
+fs('which mri_synthseg mri_synthmorph mri_vol2vol && echo FS_LICENSE=$FS_LICENSE')
 ```
 
-**WMH-SynthSeg**: code from the same GitHub commit as the original runs. Two patches: the model
-path (hard-coded to `/app/models`) points to the Drive folder, and `weights_only=False` for
-PyTorch ≥ 2.6. The model weights (790 MB) are downloaded once and kept on Drive.
+**Input data.** Old dataset, localizers not counted.
 
 ```{code-cell} ipython3
-repo, model = P['wmh_repo'], P['wmh_model']
-inf = repo / 'WMHSynthSeg' / 'inference.py'
-if not repo.exists():
-    sh(f'git clone -q https://github.com/lasopablo/freesurfer-freesurfer-dev-mri_WMHsynthseg.git {repo} '
-       f'&& git -C {repo} checkout -q 2bf9a42')
-    sh(f"""sed -i "s#'/app/models'#'{model.parent}'#" {inf}""")
-    sh(f'sed -i "s/torch.load(model_file, map_location=device)/'
-       f'torch.load(model_file, map_location=device, weights_only=False)/" {inf}')
-if not (model.exists() and model.stat().st_size > 0):
-    model.parent.mkdir(parents=True, exist_ok=True)
-    sh(f'wget -q -c -O {model} https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/WMH-SynthSeg/{model.name}')
-```
+def nii(root):
+    return sorted(f for f in root.rglob('*.nii.gz') if 'localizer' not in f.name)
 
-## Check
 
-```{code-cell} ipython3
-assert torch.cuda.is_available(), 'no GPU: Runtime -> Change runtime type -> GPU'
-print('torch', torch.__version__, '|', torch.cuda.get_device_name(0), '|', os.cpu_count(), 'CPUs')
-
-fs('which mri_synthseg mri_synthmorph mri_vol2vol')
-
-sh(f"git -C {repo} log -1 --format='WMH-SynthSeg commit %h  %ad'")
-sh(f"grep -n 'model_file = \\|torch.load(' {inf}")
-print(f'model {model.name}: {model.stat().st_size / 1e6:.0f} MB')
+counts = {'old 3T': (len(nii(OLD_RAW / '3T')), 66), 'old 64mT': (len(nii(OLD_RAW / '64mT')), 61)}
+for k, (n, expected) in counts.items():
+    print(f'{k:9s} {n:3d} scans (expected {expected})')
+assert all(n == e for n, e in counts.values()), 'scan count does not match'
 ```

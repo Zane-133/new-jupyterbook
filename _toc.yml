@@ -9,3 +9,6 @@ parts:
       - file: 05_registration
       - file: 06_dice
       - file: 07_volume
+  - caption: Appendix
+    chapters:
+      - file: appendix_wmh_colab

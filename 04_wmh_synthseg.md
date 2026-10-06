@@ -13,74 +13,71 @@ kernelspec:
 
 # WMH-SynthSeg
 
-Old dataset, all scans of the scan table, on the GPU. Like SynthSeg, it resamples every input to
-1 mm and writes the label map on that grid. No `--crop`: it had an out-of-bounds bug, so the full
-field of view is used.
+The WMH-SynthSeg label maps are **not computed in this book**. They were computed on Google
+Colab with a GPU ({doc}`appendix_wmh_colab`); this chapter reads them for Chapters 06–07.
+
+## Why not on Neurodesk
+
+WMH-SynthSeg resamples every input to 1 mm and pads the grid to a multiple of 32. No `--crop`
+(it had an out-of-bounds bug), so the full field of view goes through the network at once.
+Measured on the Neurodesk CPU server (8 CPUs, 32 GB RAM), `--device cpu --threads 8`, one scan:
+
+| Scan | 1 mm grid | Peak RAM | Result |
+|---|---|---|---|
+| `sub-0035_acq-highres_T2w` | 224 × 224 × 160 = 8.0 M voxels | 27.0 GB | finished in 333 s |
+| `sub-0064_ses-01_run-1_T1w` | 192 × 224 × 224 = 9.6 M voxels | > 32 GB | killed (out of memory) |
+
+The first scan already needs 27 of the 32 GB, and 108 of the 127 scans have a 1 mm grid at least
+as large. The Neurodesk GPU server (NVIDIA A40) cannot be used either: its AppArmor profile
+blocks the abstract unix socket that the NVIDIA driver opens during CUDA initialisation, so
+`cuInit` fails. WMH-SynthSeg was therefore run on a Colab A100 GPU.
+
+## Read the results
+
+The Colab output is unzipped into `wmh_results` (`config.yml`), in the same layout the book
+uses: `{3T,64mT}/<subject>/[<session>/]<scan>_WMHseg.nii.gz` and `volumes_main.csv`, one row
+per scan. `PROVENANCE.txt` records how they were computed.
 
 ```{code-cell} ipython3
-import os
 import shutil
-import sys
 
 import pandas as pd
-import torch
 
-from common import P, OLD_OUT, WORK, LOGS, seg_path, sh
+from common import P, OLD_OUT, seg_path
 
-assert torch.cuda.is_available(), 'no GPU: Runtime -> Change runtime type -> GPU'
 scans = pd.read_csv(OLD_OUT / 'scans.csv', keep_default_na=False)
-WMH = OLD_OUT / 'seg' / 'WMH_SynthSeg'
+SRC, WMH = P['wmh_results'], OLD_OUT / 'seg' / 'WMH_SynthSeg'
+assert (SRC / 'volumes_main.csv').exists(), \
+    f'WMH-SynthSeg results not found in {SRC}: run Appendix A on Colab and unzip its output there'
+print((SRC / 'PROVENANCE.txt').read_text())
 ```
 
-## Segment and save
-
-Scans without a label map on Drive are linked into one staging folder on the Colab disk, and
-`inference.py` runs once on it, so the model loads once. Label maps are moved to
-`{3T,64mT}/<subject>/[<session>/]` on Drive and their volumes are added to `volumes_main.csv`.
-Finished scans are skipped.
+A test run writes to `results_test/`: the label maps and table rows of its subjects are copied
+there. In a full run `wmh_results` is the results folder itself and nothing is copied.
 
 ```{code-cell} ipython3
-def run_wmh(scans, out, log):
-    todo = [r for r in scans.to_dict('records') if not seg_path(out, 'WMH_SynthSeg', r).exists()]
-    if todo:
-        stage, segout = WORK / 'WMH' / 'stage', WORK / 'WMH' / 'segout'
-        for d in (stage, segout):
-            shutil.rmtree(d, ignore_errors=True)
-            d.mkdir(parents=True)
-        for r in todo:
-            os.symlink(r['src'], stage / f"{r['scan']}.nii.gz")
-
-        # expandable_segments reduces GPU memory fragmentation
-        sh(f'PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True {sys.executable} inference.py '
-           f'--i {stage} --o {segout} --csv_vols {segout}/vols.csv --device cuda',
-           cwd=P['wmh_repo'] / 'WMHSynthSeg', log=log)
-
-        for r in todo:
-            dst = seg_path(out, 'WMH_SynthSeg', r)
+if SRC != WMH:
+    src_out = SRC.parents[1]   # <results>/old, so that seg_path() finds the label maps
+    for r in scans.to_dict('records'):
+        src, dst = seg_path(src_out, 'WMH_SynthSeg', r), seg_path(OLD_OUT, 'WMH_SynthSeg', r)
+        if src.exists():
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(segout / f"{r['scan']}_seg.nii.gz", dst)
-
-        # volume table: scan-table columns + volumes, merged with earlier results
-        vols = pd.read_csv(segout / 'vols.csv')
-        vols['scan'] = vols.pop('Input-file').map(lambda p: os.path.basename(p)[:-len('_seg.nii.gz')])
-        tidy = pd.DataFrame(todo).drop(columns='src').merge(vols, on='scan')
-        dst = out / 'seg' / 'WMH_SynthSeg' / 'volumes_main.csv'
-        if dst.exists():
-            tidy = pd.concat([pd.read_csv(dst, keep_default_na=False), tidy],
-                             ignore_index=True).drop_duplicates('scan', keep='last')
-        tidy.sort_values(['fs', 'sub', 'mod', 'acq']).to_csv(dst, index=False)
-
-
-run_wmh(scans, OLD_OUT, LOGS / 'wmh_old.log')
+            shutil.copy(src, dst)
+    v = pd.read_csv(SRC / 'volumes_main.csv', keep_default_na=False)
+    v[v.scan.isin(scans.scan)].to_csv(WMH / 'volumes_main.csv', index=False)
+    shutil.copy(SRC / 'PROVENANCE.txt', WMH / 'PROVENANCE.txt')
 ```
 
 ## Check
 
+Every scan of the scan table needs a label map and a row in `volumes_main.csv`.
+
 ```{code-cell} ipython3
 v = pd.read_csv(WMH / 'volumes_main.csv', keep_default_na=False)
-missing = set(scans.scan) - set(v.scan)
-assert not missing, f'not segmented: {sorted(missing)}'
-print(f"WMH-SynthSeg: {len(scans)} scans -> {WMH}/volumes_main.csv")
+no_map = [r['scan'] for r in scans.to_dict('records') if not seg_path(OLD_OUT, 'WMH_SynthSeg', r).exists()]
+no_row = sorted(set(scans.scan) - set(v.scan))
+assert not no_map and not no_row, f'missing label maps: {no_map}; missing table rows: {no_row}'
+print(f"WMH-SynthSeg: {len(scans)} scans, label maps and volumes in {WMH}")
 ```
 
 ## New dataset

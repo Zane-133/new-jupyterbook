@@ -36,9 +36,9 @@ TABLES.mkdir(parents=True, exist_ok=True)
 
 ## Segment and save
 
-Per folder: link the scans into a staging folder on the Colab disk, run `mri_synthseg`, then save
-to Drive the label maps and 1 mm images (`{3T,64mT}/<subject>/[<session>/]`) and, last, the
-folder's volume and QC tables. A folder whose volume table is on Drive is finished and skipped.
+Per folder: link the scans into a staging folder, run `mri_synthseg`, then copy the label maps
+and 1 mm images to the results folder (`{3T,64mT}/<subject>/[<session>/]`) and, last, the
+folder's volume and QC tables. A folder whose volume table exists is finished and skipped.
 
 ```{code-cell} ipython3
 for group, g in scans.groupby('group'):

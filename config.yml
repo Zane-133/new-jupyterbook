@@ -1,13 +1,11 @@
-# Paths on Google Colab. Every chapter reads them through common.py; no paths in the chapters.
+# Paths on Neurodesk. Every chapter reads them through common.py; no paths in the chapters.
 paths:
-  zip:           /content/drive/MyDrive/neurodesk_upload.zip                  # input data, uploaded once
-  data:          /content/neurodesk_upload                                    # unzipped by Chapter 02
-  license:       /content/neurodesk_upload/freesurfer/license.txt
-  results:       /content/drive/MyDrive/lfbook/results                        # everything the book computes
-  work:          /content/work                                                # staging folders (symlinks; not on Drive)
-  neurodesk_env: /content/neurodesk-colab-env.json                            # written by the Neurodesk setup
-  wmh_repo:      /content/wmh                                                 # WMH-SynthSeg code
-  wmh_model:     /content/drive/MyDrive/wmh_model/WMH-SynthSeg_v10_231110.pth # downloaded once, kept on Drive
+  data:        ~/neurodesktop-storage/neurodesk_upload                          # old/  new/  freesurfer/
+  license:     ~/neurodesktop-storage/neurodesk_upload/freesurfer/license.txt
+  results:     ~/neurodesktop-storage/lfbook/results                            # everything the book computes
+  work:        ~/neurodesktop-storage/lfbook/work                               # staging folders (symlinks)
+  # WMH-SynthSeg label maps computed on Colab (Appendix A), unzipped here; read by Chapter 04
+  wmh_results: ~/neurodesktop-storage/lfbook/results/old/seg/WMH_SynthSeg
 
 freesurfer_module: freesurfer/8.0.0
 
