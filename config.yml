@@ -1,10 +1,16 @@
-# Paths on Neurodesk. Every chapter reads them through common.py; no paths in the chapters.
+# Paths on Google Colab. Every chapter reads them through common.py; no paths in the chapters.
 paths:
-  data:      ~/neurodesktop-storage/neurodesk_upload          # old/  new/  freesurfer/
-  results:   ~/neurodesktop-storage/results                   # everything the book computes
-  license:   ~/neurodesktop-storage/neurodesk_upload/freesurfer/license.txt
-  wmh_repo:  ~/wmh                                            # WMH-SynthSeg code (setup.sh)
-  wmh_model: ~/wmh_model/WMH-SynthSeg_v10_231110.pth          # model weights (setup.sh)
+  zip:           /content/drive/MyDrive/neurodesk_upload.zip                  # input data, uploaded once
+  data:          /content/neurodesk_upload                                    # unzipped by Chapter 02
+  license:       /content/neurodesk_upload/freesurfer/license.txt
+  results:       /content/drive/MyDrive/lfbook/results                        # everything the book computes
+  work:          /content/work                                                # staging folders (symlinks; not on Drive)
+  neurodesk_env: /content/neurodesk-colab-env.json                            # written by the Neurodesk setup
+  wmh_repo:      /content/wmh                                                 # WMH-SynthSeg code
+  wmh_model:     /content/drive/MyDrive/wmh_model/WMH-SynthSeg_v10_231110.pth # downloaded once, kept on Drive
 
 freesurfer_module: freesurfer/8.0.0
-threads: 24         # SynthSeg / SynthMorph CPU threads (original scripts: 8; only affects speed)
+
+# 'all', or a list of subjects for a test run, e.g. [sub-0011].
+# A test run writes to results_test/ instead of results/.
+subjects: [sub-0011]

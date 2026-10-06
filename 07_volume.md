@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 ---
 
-# The LF–HF Gap in Dice and Volume
+# Volume
 
 Volume bias between 3T and 64mT on the old dataset, per tool, modality and region.
 
@@ -27,8 +27,6 @@ Two comparisons, same subject and modality:
 - Zero volumes are kept and flagged (segmentation failure, not missing data).
 
 ```{code-cell} ipython3
-import glob, os, re
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -40,52 +38,9 @@ OUT = OLD_OUT / 'volume'
 OUT.mkdir(parents=True, exist_ok=True)
 ```
 
-## Merge the SynthSeg volume tables
+## Bias per subject
 
-SynthSeg writes one volume table and one QC table per folder (9 folders, Chapter 02). They are
-stacked into one table each, with the metadata parsed from the scan name.
-
-```{code-cell} ipython3
-def read_all(kind):
-    """Stack the per-folder CSVs; first column -> scan name."""
-    d = pd.concat([pd.read_csv(f) for f in sorted(glob.glob(f"{SEG}/SynthSeg/volumes/{kind}_*.csv"))],
-                  ignore_index=True)
-    d = d.rename(columns={d.columns[0]: "scan"})
-    d["scan"] = (d["scan"].astype(str).map(os.path.basename)
-                 .str.replace(r"\.nii(\.gz)?$", "", regex=True)
-                 .str.replace(r"_synthseg$", "", regex=True))
-    assert len(d) == 127 and d["scan"].is_unique, f"{kind}: {len(d)} rows, expected 127 unique scans"
-    return d
-
-
-def meta(scan):
-    """Metadata from scan name (3T: acq-*, no session; 64mT: ses-*, run-*)."""
-    acq = re.search(r"acq-(highres|lowres)", scan)
-    ses = re.search(r"ses-\d+", scan)
-    run = re.search(r"run-\d+", scan)
-    mod = re.search(r"(T1w|T2w|FLAIR)", scan).group(1)
-    return {
-        "subject":        re.search(r"sub-\d+", scan).group(),
-        "field_strength": "3T" if acq else "64mT",
-        "acq":            acq.group(1) if acq else "n/a",
-        "session":        ses.group() if ses else "n/a",
-        "run":            run.group() if run else "run-1",
-        "modality":       mod,
-        "arm":            f"3T_{acq.group(1)}_{mod}" if acq else f"64mT_{mod}",
-    }
-
-
-vol, qc = read_all("vol"), read_all("qc")
-m = pd.DataFrame([meta(s) for s in vol["scan"]])
-m.insert(0, "scan", vol["scan"].values)
-m.merge(vol, on="scan").to_csv(OUT / "volumes_wide.csv", index=False)
-m.merge(qc, on="scan").to_csv(OUT / "qc_all.csv", index=False)
-print(f"127 scans -> {OUT}/volumes_wide.csv, qc_all.csv")
-```
-
-## Volume bias per subject
-
-SynthSeg reads `volumes_wide.csv` (above); WMH-SynthSeg reads `volumes_main.csv` (Chapter 02).
+SynthSeg reads `volumes_wide.csv` (Chapter 03); WMH-SynthSeg reads `volumes_main.csv` (Chapter 04).
 The two tools name their columns differently; the tables below map both onto the same regions.
 
 ```{code-cell} ipython3
@@ -191,14 +146,14 @@ def pair_bias(df, tool):
     return pd.DataFrame(rows)
 
 
-S = load(OUT / 'volumes_wide.csv', 'SynthSeg')
+S = load(SEG / 'SynthSeg' / 'volumes_wide.csv', 'SynthSeg')
 W = load(SEG / 'WMH_SynthSeg' / 'volumes_main.csv', 'WMH_SynthSeg')
 long = pd.concat([pair_bias(S, 'SynthSeg'), pair_bias(W, 'WMH_SynthSeg')], ignore_index=True)
 long.to_csv(OUT / 'bias_long.csv', index=False)
 print(f"bias_long.csv {len(long)} rows")
 ```
 
-## Summary per region
+## Summary per region and save
 
 Per tool × comparison × modality × region: Bland–Altman mean and 95% limits of agreement, ICC(2,1)
 (absolute agreement), one-sample t-test against zero, Benjamini–Hochberg FDR within each
@@ -286,3 +241,7 @@ common['same_grade'] = common.grade_syn == common.grade_wmh
 common.to_csv(OUT / 'cross_tool_comparison.csv', index=False)
 print(f"cross_tool_comparison.csv {len(common)} rows")
 ```
+
+## New dataset
+
+To be added.

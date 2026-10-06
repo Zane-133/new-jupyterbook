@@ -12,8 +12,9 @@ exclude_patterns:
   - README.md
 
 execute:
-  # cache: a chapter is re-executed only when its code changes
-  execute_notebooks: cache
+  # force: every chapter runs on every build. Chapter 01 must install the tools in each new
+  # Colab runtime; finished computations are skipped inside the chapters.
+  execute_notebooks: force
   # no time limit: segmentation and registration take hours
   timeout: -1
   # stop on the first error instead of producing a book with wrong numbers
