@@ -1,0 +1,12 @@
+# Paths on Google Colab (used when colab_run.ipynb sets BOOK_CONFIG=config_colab.yml).
+# Data and results live on the Colab disk while the book runs; colab_run.ipynb copies
+# results back to Google Drive (Drive cannot hold the symlinks used during segmentation).
+paths:
+  data:      /content/neurodesk_upload                                 # unzipped from Drive
+  results:   /content/results                                          # saved to Drive afterwards
+  license:   /content/neurodesk_upload/freesurfer/license.txt
+  wmh_repo:  /content/wmh                                              # WMH-SynthSeg code
+  wmh_model: /content/drive/MyDrive/wmh_model/WMH-SynthSeg_v10_231110.pth   # downloaded once, kept on Drive
+
+freesurfer_module: freesurfer/8.0.0
+threads: 12         # SynthSeg / SynthMorph CPU threads (Colab A100 runtime: 12 CPUs; only affects speed)

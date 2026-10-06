@@ -7,7 +7,8 @@ from pathlib import Path
 import yaml
 
 HERE = Path(__file__).resolve().parent
-CFG = yaml.safe_load((HERE / "config.yml").read_text())
+# config.yml = Neurodesk; colab_run.ipynb sets BOOK_CONFIG=config_colab.yml
+CFG = yaml.safe_load((HERE / os.environ.get("BOOK_CONFIG", "config.yml")).read_text())
 P = {k: Path(os.path.expanduser(v)) for k, v in CFG["paths"].items()}
 
 DATA, RESULTS = P["data"], P["results"]

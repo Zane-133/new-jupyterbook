@@ -1,6 +1,13 @@
 # Runnable book: LF vs HF brain volume
 
-Runs on Neurodesk. The `.md` chapters are the source; `jupyter-book build` executes them.
+The `.md` chapters are the source; `jupyter-book build` executes them. Two ways to run it:
+
+- **Google Colab** (GPU works): open `colab_run.ipynb` in Colab and run it top to bottom.
+  It installs everything, runs the book, and saves results, the built book and a fixed record
+  of each successful run to `My Drive/lfbook/`. Needs `neurodesk_upload.zip` in the root of My Drive.
+  Paths: `config_colab.yml`.
+- **Neurodesk**: the rest of this README. Paths: `config.yml`. (On Neurodesk Play the A40
+  server cannot run CUDA, so WMH-SynthSeg in Chapter 02 does not run there.)
 
 ## Inputs (not in this repository)
 
