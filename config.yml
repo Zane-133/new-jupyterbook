@@ -11,4 +11,4 @@ freesurfer_module: freesurfer/8.0.0
 
 # 'all', or a list of subjects for a test run, e.g. [sub-0011].
 # A test run writes to results_test/ instead of results/.
-subjects: [sub-0011]
+subjects: all
