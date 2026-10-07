@@ -19,7 +19,7 @@ execute:
     - "*appendix_wmh_colab*"
   # no time limit: segmentation and registration take hours
   timeout: -1
-  # stop on the first error instead of producing a book with wrong numbers
+  # a cell error stops its chapter (raise_on_error below then stops the whole build)
   allow_errors: false
 
 parse:
@@ -35,3 +35,6 @@ html:
 sphinx:
   config:
     numfig: true
+    # stop the build at the first failing chapter; otherwise it only logs
+    # "Executing notebook failed" and runs the next chapters on missing results
+    nb_execution_raise_on_error: true
