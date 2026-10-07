@@ -5,6 +5,9 @@ Neurodesk (CPU server); only WMH-SynthSeg runs on Google Colab (Appendix A).
 
 ## Before the first run
 
+Only `~/neurodesktop-storage/` survives a Neurodesk restart, so the book lives in
+`~/neurodesktop-storage/new-jupyterbook/`.
+
 - Data: `~/neurodesktop-storage/neurodesk_upload/` with `old/`, `new/`, `freesurfer/license.txt`.
 - Python: `~/conda-envs/lfbook` with `jupyter-book<2`, `pandas`, `nibabel`, `scipy`, `pyyaml`.
 - WMH-SynthSeg results: run `appendix_wmh_colab.ipynb` on Colab (A100 GPU), download
@@ -22,7 +25,7 @@ Paths are in `config.yml`. For a test run set `subjects: [sub-0011]` there; resu
 In a terminal, so the build continues when the browser is closed:
 
 ```bash
-cd ~/new-jupyterbook && git pull
+cd ~/neurodesktop-storage/new-jupyterbook && git pull
 mkdir -p ~/neurodesktop-storage/lfbook/results/logs
 nohup ~/conda-envs/lfbook/bin/jupyter-book build --all . > ~/neurodesktop-storage/lfbook/results/logs/build.log 2>&1 &
 tail -f ~/neurodesktop-storage/lfbook/results/logs/build.log
@@ -49,7 +52,7 @@ In JupyterLab, kernel **Python [conda env:lfbook]**. The `.md` files are paired 
 copies (gitignored):
 
 ```bash
-cd ~/new-jupyterbook && ~/conda-envs/lfbook/bin/jupytext --to ipynb 0*.md     # once
+cd ~/neurodesktop-storage/new-jupyterbook && ~/conda-envs/lfbook/bin/jupytext --to ipynb 0*.md     # once
 ~/conda-envs/lfbook/bin/jupytext --sync 06_dice.ipynb                          # after editing
 ```
 
