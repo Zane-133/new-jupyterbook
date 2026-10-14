@@ -6,22 +6,23 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: Python [conda env:lfbook]
   language: python
-  name: python3
+  name: conda-env-lfbook-py
 ---
 
 # Environment
 
-The book runs on Neurodesk (8 CPUs, 32 GB RAM, no GPU). Nothing is installed here: FreeSurfer
-comes from the Neurodesk module, the Python packages from the `lfbook` environment. The cells
+The book runs on the Neurodesk GPU server (NVIDIA A40). Nothing is installed here: FreeSurfer
+comes from the Neurodesk module, the Python packages (PyTorch included) from the `lfbook`
+environment. The cells
 below check that the tools and the input data are in place; later chapters assume they are.
 
 ```{code-cell} ipython3
 import sys
 from pathlib import Path
 
-from common import P, OLD_RAW, RESULTS, THREADS, fs
+from common import P, OLD_RAW, RESULTS, THREADS, fs, sh
 
 for k, v in P.items():
     print(f'{k:12s} {v}')
@@ -35,6 +36,16 @@ all CPUs.
 mem = Path('/sys/fs/cgroup/memory.max').read_text().strip()
 print('python', sys.executable)
 print(f'{THREADS} CPUs | memory limit', mem if mem == 'max' else f'{int(mem) / 1e9:.0f} GB')
+```
+
+**GPU.** WMH-SynthSeg (Chapter 03) runs on the GPU.
+
+```{code-cell} ipython3
+import torch
+
+assert torch.cuda.is_available(), 'no GPU: start Neurodesk on the A40 server'
+print('torch', torch.__version__)
+sh('nvidia-smi --query-gpu=name,memory.total --format=csv,noheader')
 ```
 
 **FreeSurfer.** SynthSeg, SynthMorph and `mri_vol2vol` from the FreeSurfer 8.0.0 module.

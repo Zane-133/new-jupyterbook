@@ -4,8 +4,9 @@ paths:
   license:     ~/neurodesktop-storage/neurodesk_upload/freesurfer/license.txt
   results:     ~/neurodesktop-storage/lfbook/results                            # everything the book computes
   work:        ~/neurodesktop-storage/lfbook/work                               # staging folders (symlinks)
-  # WMH-SynthSeg label maps computed on Colab (Appendix A), unzipped here; read by Chapter 04
-  wmh_results: ~/neurodesktop-storage/lfbook/results/old/seg/WMH_SynthSeg
+  # WMH-SynthSeg code (commit 2bf9a42, patched in Chapter 03) and model; used by Chapter 03
+  wmh_code:    ~/neurodesktop-storage/lfbook/wmh
+  wmh_model:   ~/neurodesktop-storage/lfbook/wmh_model/WMH-SynthSeg_v10_231110.pth
 
 freesurfer_module: freesurfer/8.0.0
 

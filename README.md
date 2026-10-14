@@ -1,7 +1,7 @@
 # Runnable book: LF vs HF brain volume
 
 The `.md` chapters are the source; `jupyter-book build` executes them in order. The book runs on
-Neurodesk (CPU server); only WMH-SynthSeg runs on Google Colab (Appendix A).
+the Neurodesk GPU server (NVIDIA A40).
 
 ## Before the first run
 
@@ -9,13 +9,9 @@ Only `~/neurodesktop-storage/` survives a Neurodesk restart, so the book lives i
 `~/neurodesktop-storage/new-jupyterbook/`.
 
 - Data: `~/neurodesktop-storage/neurodesk_upload/` with `old/`, `new/`, `freesurfer/license.txt`.
-- Python: `~/conda-envs/lfbook` with `jupyter-book<2`, `pandas`, `nibabel`, `scipy`, `pyyaml`.
-- WMH-SynthSeg results: run `appendix_wmh_colab.ipynb` on Colab (A100 GPU), download
-  `My Drive/lfbook/WMH_SynthSeg_old.zip`, upload it to the Neurodesk home folder and unzip:
-
-```bash
-unzip -n ~/WMH_SynthSeg_old.zip -d ~/neurodesktop-storage/lfbook/results
-```
+- Python: `~/conda-envs/lfbook` with `jupyter-book<2`, `pandas`, `nibabel`, `scipy`, `pyyaml`, `torch`.
+- WMH-SynthSeg code and model: `wmh_code` and `wmh_model` in `config.yml`; Chapter 03 downloads
+  and patches them if missing.
 
 Paths are in `config.yml`. For a test run set `subjects: [sub-0011]` there; results then go to
 `results_test/`. For the full run set `subjects: all`.
@@ -53,7 +49,7 @@ copies (gitignored):
 
 ```bash
 cd ~/neurodesktop-storage/new-jupyterbook && ~/conda-envs/lfbook/bin/jupytext --to ipynb 0*.md     # once
-~/conda-envs/lfbook/bin/jupytext --sync 06_dice.ipynb                          # after editing
+~/conda-envs/lfbook/bin/jupytext --sync 05_dice.ipynb                          # after editing
 ```
 
 Finished steps are skipped here too, so re-running a chapter takes seconds. Do not run chapters
@@ -63,10 +59,10 @@ while a build is running. Edits reach the book only after `--sync` writes them b
 |---|---|
 | 01 Environment | nothing (checks the tools and the data) |
 | 02 Input | `scans.csv`, `reg/pairs_{lowres,highres}.csv` |
-| 03 SynthSeg | `seg/SynthSeg/` |
-| 04 WMH-SynthSeg | nothing (checks `seg/WMH_SynthSeg/` from Colab; copies it for a test run) |
-| 05 Registration | `reg/xfm_{lowres,highres}/` |
-| 06 Dice | `dice/` |
-| 07 Volume | `volume/` |
+| 03 Segmentation | `seg/SynthSeg/`, `seg/WMH_SynthSeg/` |
+| 04 Registration | `reg/xfm_{lowres,highres}/`, `reg/qc/` |
+| 05 Dice | `dice/` |
+| 06 Volume | `volume/` |
+| 07 Benchmark | nothing (reads the Dice and bias tables) |
 
 The new dataset is not yet included.

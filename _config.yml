@@ -14,9 +14,6 @@ exclude_patterns:
 execute:
   # force: every chapter runs on every build; finished computations are skipped inside the chapters
   execute_notebooks: force
-  # Appendix A needs Colab and a GPU: shown, not run (pattern matches the full path)
-  exclude_patterns:
-    - "*appendix_wmh_colab*"
   # no time limit: segmentation and registration take hours
   timeout: -1
   # a cell error stops its chapter (raise_on_error below then stops the whole build)

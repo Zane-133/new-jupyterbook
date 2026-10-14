@@ -4,11 +4,8 @@ parts:
   - chapters:
       - file: 01_environment
       - file: 02_input
-      - file: 03_synthseg
-      - file: 04_wmh_synthseg
-      - file: 05_registration
-      - file: 06_dice
-      - file: 07_volume
-  - caption: Appendix
-    chapters:
-      - file: appendix_wmh_colab
+      - file: 03_segmentation
+      - file: 04_registration
+      - file: 05_dice
+      - file: 06_volume
+      - file: 07_benchmark

@@ -5,10 +5,11 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
+    jupytext_version: 1.19.5
 kernelspec:
-  display_name: Python 3
+  display_name: Python [conda env:lfbook]
   language: python
-  name: python3
+  name: conda-env-lfbook-py
 ---
 
 # Input
@@ -55,7 +56,7 @@ print(f"{n['3T']} 3T + {n['64mT']} 64mT scans, {scans['sub'].nunique()} subjects
 
 Each 64mT scan (moving) is paired with the 3T scan (fixed) of the same subject and modality, once
 against 3T lowres and once against 3T highres. A pair also lists the label map each tool will
-write (Chapters 03–04).
+write (Chapter 03).
 
 ```{code-cell} ipython3
 TOOLS = ['SynthSeg', 'WMH_SynthSeg']
@@ -94,6 +95,6 @@ print(f"{len(scans)} scans -> {OLD_OUT / 'scans.csv'}")
 print(f"{len(pairs['lowres'])} + {len(pairs['highres'])} pairs -> {OLD_OUT / 'reg'}/pairs_{{lowres,highres}}.csv")
 ```
 
-## New dataset
+```{code-cell} ipython3
 
-To be added.
+```
