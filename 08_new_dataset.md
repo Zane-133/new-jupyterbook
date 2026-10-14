@@ -186,11 +186,17 @@ print(f'WMH-SynthSeg: {len(scans)} scans -> {SEG}')
 
 ## Registration
 
-As Chapter 04: `mri_synthmorph register -m rigid`, 64mT raw image onto 3T raw image, one `.lta`
-per pair. Existing transforms are skipped.
+`mri_synthmorph register`, 64mT raw image onto 3T raw image, one `.lta` per pair. Existing
+transforms are skipped. `REG_MODEL` sets the transform: `rigid` (6 parameters: rotation and
+translation, as Chapter 04) or `affine` (12 parameters: also scaling and shear). Affine is used
+here because the 64mT brain is smaller than the 3T brain in every scan (ICV, see Volume below);
+a rigid transform cannot correct that. Each model keeps its own transforms and Dice table, so
+switching back to `rigid` reuses the earlier results.
 
 ```{code-cell} ipython3
-XFM = REG / 'xfm'
+REG_MODEL = 'affine'                     # 'rigid' or 'affine'
+SUFFIX = '' if REG_MODEL == 'rigid' else f'_{REG_MODEL}'
+XFM = REG / f'xfm{SUFFIX}'
 XFM.mkdir(exist_ok=True)
 for r in pairs.itertuples():
     lta = XFM / f'{r.pair_id}.lta'
@@ -198,12 +204,47 @@ for r in pairs.itertuples():
         continue
     print(r.pair_id)
     fs(f'export OMP_NUM_THREADS={THREADS} && '
-       f'mri_synthmorph register -m rigid -t {lta} {r.mov_raw} {r.fix_raw}',
-       log=LOGS / 'register_new.log', show=False)
+       f'mri_synthmorph register -m {REG_MODEL} -t {lta} {r.mov_raw} {r.fix_raw}',
+       log=LOGS / f'register_new{SUFFIX}.log', show=False)
 
 n = sum((XFM / f'{p}.lta').exists() for p in pairs.pair_id)
 assert n == len(pairs), f'{n} / {len(pairs)} transforms'
-print(f'{n} transforms -> {XFM}')
+print(f'{REG_MODEL}: {n} transforms -> {XFM}')
+```
+
+Scaling in each transform: how much the 64mT image is stretched along its R, A and S axes to
+fit the 3T image, and the volume factor (determinant). 1.00 = no scaling; above 1 = the 64mT
+image is smaller than the 3T image. For a rigid transform all are 1.00.
+
+```{code-cell} ipython3
+def lta_ras2ras(path):
+    """4x4 transform of an .lta file in scanner (RAS) coordinates, moving -> fixed."""
+    lines = Path(path).read_text().splitlines()
+    kind = int(next(l for l in lines if l.strip().startswith('type')).split('=')[1].split()[0])
+    i = lines.index('1 4 4')
+    M = np.loadtxt(lines[i + 1:i + 5])
+    if kind == 1:                                    # LINEAR_RAS_TO_RAS
+        return M
+
+    def vox2ras(tag):                                # volume geometry stored in the .lta
+        j = next(k for k, l in enumerate(lines) if l.startswith(f'{tag} volume info'))
+        g = {k.strip(): v for k, v in (l.split('=', 1) for l in lines[j + 1:j + 12] if '=' in l)}
+        vs, dims = (np.array(g[k].split(), float) for k in ('voxelsize', 'volume'))
+        R = np.column_stack([np.array(g[k].split(), float) for k in ('xras', 'yras', 'zras')]) * vs
+        A = np.eye(4)
+        A[:3, :3], A[:3, 3] = R, np.array(g['cras'].split(), float) - R @ (dims / 2)
+        return A
+    return vox2ras('dst') @ M @ np.linalg.inv(vox2ras('src'))   # LINEAR_VOX_TO_VOX
+
+
+rows = []
+for r in pairs.itertuples():
+    L = lta_ras2ras(XFM / f'{r.pair_id}.lta')[:3, :3]
+    sR, sA, sS = np.linalg.norm(L, axis=0)           # stretch of the 64mT R, A, S axes
+    rows.append(dict(subject=r.subject, modality=r.modality, R=sR, A=sA, S=sS, volume=np.linalg.det(L)))
+scale = pd.DataFrame(rows)
+(scale.groupby('modality')[['R', 'A', 'S', 'volume']]
+ .agg(lambda x: f'{x.median():.3f} [{x.min():.3f}, {x.max():.3f}]').loc[MODS])
 ```
 
 ## Dice
@@ -261,7 +302,7 @@ def dice(A, B):
                 voldiff=(nb - na) / ((na + nb) / 2), n_3T=na, n_64mT=nb)
 
 
-DICE_CSV, WORK = DICE / 'dice_WMH_SynthSeg.csv', DICE / 'work'
+DICE_CSV, WORK = DICE / f'dice_WMH_SynthSeg{SUFFIX}.csv', DICE / f'work{SUFFIX}'
 if not DICE_CSV.exists():
     WORK.mkdir(parents=True, exist_ok=True)
     out = []
@@ -364,6 +405,18 @@ def bias_table(b, regions):
 
 
 bias_table(bias_new, SIZE_ORDER + ['ICV'])
+```
+
+The same bias after removing the scaling of each pair's transform (64mT volume × volume factor
+above). With rigid registration nothing changes. If the shrinkage is uniform, ICV should move to
+about 0 %.
+
+```{code-cell} ipython3
+vf = scale.set_index(['subject', 'modality']).volume
+lf_corr = lf.mul(vf.reindex(lf.index), axis=0)
+bias_corr = (((lf_corr - hf.reindex(lf.index)) / hf.reindex(lf.index) * 100)
+             .reset_index().melt(id_vars=key, var_name='region', value_name='pct_diff'))
+bias_table(bias_corr, SIZE_ORDER + ['ICV'])
 ```
 
 ```{code-cell} ipython3
