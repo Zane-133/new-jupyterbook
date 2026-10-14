@@ -115,7 +115,7 @@ def overlay(ax, hf, lf, vox, title):
 
 
 VIEWS = {'axial': (2, [0, 1]), 'coronal': (1, [0, 2]), 'sagittal': (0, [1, 2])}   # cut axis, shown axes
-fig, axes = plt.subplots(len(examples), 3, figsize=(12, 4 * len(examples)))
+fig, axes = plt.subplots(len(examples), 3, figsize=(12, 4 * len(examples)), squeeze=False)
 for ax, r in zip(axes, examples):
     hf, vox = load_ras(r['fix_raw'])
     lf, _ = load_ras(r['moved'])
