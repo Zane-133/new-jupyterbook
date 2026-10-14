@@ -35,3 +35,7 @@ sphinx:
     # stop the build at the first failing chapter; otherwise it only logs
     # "Executing notebook failed" and runs the next chapters on missing results
     nb_execution_raise_on_error: true
+    # the chapters name the JupyterLab kernel (conda-env-lfbook-py, made by nb_conda_kernels);
+    # jupyter-book runs inside the lfbook env, where the same Python is called python3
+    nb_kernel_rgx_aliases:
+      conda-env-lfbook-py: python3
