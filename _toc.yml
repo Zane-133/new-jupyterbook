@@ -9,3 +9,4 @@ parts:
       - file: 05_dice
       - file: 06_volume
       - file: 07_benchmark
+      - file: 08_new_dataset

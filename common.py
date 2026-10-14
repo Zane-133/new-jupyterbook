@@ -11,10 +11,12 @@ CFG = yaml.safe_load((HERE / "config.yml").read_text())
 P = {k: Path(os.path.expanduser(v)) for k, v in CFG["paths"].items()}
 
 SUBJECTS = CFG["subjects"]
+SUBJECTS_NEW = CFG.get("subjects_new", "all")
 RESULTS = P["results"] if SUBJECTS == "all" else P["results"].with_name(P["results"].name + "_test")
 DATA, WORK = P["data"], P["work"]
 OLD_RAW, NEW_RAW = DATA / "old", DATA / "new"
-OLD_OUT, NEW_OUT = RESULTS / "old", RESULTS / "new"
+OLD_OUT = RESULTS / "old"
+NEW_OUT = RESULTS / ("new" if SUBJECTS_NEW == "all" else "new_test")
 LOGS = RESULTS / "logs"
 
 

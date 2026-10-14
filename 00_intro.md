@@ -29,5 +29,7 @@ on a re-run.
 | 05 | Dice | pair tables, `.lta`, label maps | Dice tables |
 | 06 | Volume | volume tables | bias and agreement tables |
 | 07 | Benchmark | Dice and bias tables | — |
+| 08 | New dataset | new data, old Dice and bias tables | label maps, `.lta`, Dice and bias tables of the new dataset |
 
-The old dataset is processed in full. The new dataset is not yet included.
+Chapters 01–07 process the old dataset; Chapter 08 repeats the analysis on the new dataset and
+compares the two.

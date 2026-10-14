@@ -10,6 +10,10 @@ paths:
 
 freesurfer_module: freesurfer/8.0.0
 
-# 'all', or a list of subjects for a test run, e.g. [sub-0011].
+# Old dataset: 'all', or a list of subjects for a test run, e.g. [sub-0011].
 # A test run writes to results_test/ instead of results/.
 subjects: all
+
+# New dataset (Chapter 08): 'all', or a list for a test run, e.g. [sub-03].
+# A test run writes to new_test/ instead of new/.
+subjects_new: all

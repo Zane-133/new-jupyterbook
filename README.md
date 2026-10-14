@@ -14,7 +14,8 @@ Only `~/neurodesktop-storage/` survives a Neurodesk restart, so the book lives i
   and patches them if missing.
 
 Paths are in `config.yml`. For a test run set `subjects: [sub-0011]` there; results then go to
-`results_test/`. For the full run set `subjects: all`.
+`results_test/`. For the full run set `subjects: all`. The new dataset (Chapter 08) has its own
+setting, `subjects_new` (e.g. `[sub-03]`, results in `new_test/`).
 
 ## Run
 
@@ -36,7 +37,7 @@ tail -f ~/neurodesktop-storage/lfbook/results/logs/build.log
 - The HTML book is in `_build/html/`. `jupyter-book clean .` before a build removes pages and
   reports left over from earlier versions of the book.
 
-Check that every chapter ran (00–07 each listed once; an error shows as `ExecutionError`):
+Check that every chapter ran (00–08 each listed once; an error shows as `ExecutionError`):
 
 ```bash
 grep -E "Executed|ExecutionError" ~/neurodesktop-storage/lfbook/results/logs/build.log
@@ -55,7 +56,7 @@ cd ~/neurodesktop-storage/new-jupyterbook && ~/conda-envs/lfbook/bin/jupytext --
 Finished steps are skipped here too, so re-running a chapter takes seconds. Do not run chapters
 while a build is running. Edits reach the book only after `--sync` writes them back to the `.md`.
 
-| Chapter | Writes (under `results/old/`) |
+| Chapter | Writes (under `results/old/`; Chapter 08 under `results/new/`) |
 |---|---|
 | 01 Environment | nothing (checks the tools and the data) |
 | 02 Input | `scans.csv`, `reg/pairs_{lowres,highres}.csv` |
@@ -64,5 +65,5 @@ while a build is running. Edits reach the book only after `--sync` writes them b
 | 05 Dice | `dice/` |
 | 06 Volume | `volume/` |
 | 07 Benchmark | nothing (reads the Dice and bias tables) |
+| 08 New dataset | `seg/WMH_SynthSeg/`, `reg/`, `dice/`, `volume/` |
 
-The new dataset is not yet included.
