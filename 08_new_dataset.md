@@ -27,6 +27,12 @@ Differences from the old dataset:
 - 3T T1w is MP2RAGE INV2, a different contrast from the 64mT T1w.
 - 64mT in-plane voxels are 0.65–0.85 mm (old: 1.6–1.7 mm); slices are 5 mm in both.
 - One 64mT scan per subject: no averaging over sessions, n = 12.
+- **The 64mT brain is smaller than the 3T brain**: intracranial volume (ICV) is 7–10 % lower on
+  64mT in every subject and sequence (old dataset: +1 to +4 %). A rigid transform cannot correct
+  this, so the new pairs are registered with an affine transform (see Registration and
+  Discussion). The old dataset keeps rigid registration.
+- No scan is cut off at the bottom of the scanned volume: 3T covers 250 mm and 64mT 200 mm from
+  bottom to top, with the whole cerebellum and brainstem inside (old dataset: Chapter 05).
 
 ```{code-cell} ipython3
 import os
@@ -543,8 +549,10 @@ show_overlay(['CSF'])
 
 ## Old vs new
 
-Old: 64mT vs 3T lowres, repeated scans averaged per subject (n = 11; Chapters 05–06).
-New: 64mT vs 3T ~1 mm (n = 12). Bar = median, error bar = Q1–Q3.
+Old: 64mT vs 3T lowres, rigid registration, repeated scans averaged per subject (n = 11;
+Chapters 05–06). New: 64mT vs 3T ~1 mm, affine registration (n = 12). The registrations differ
+because only the new 64mT images are smaller than their 3T images (ICV, see above).
+Bar = median, error bar = Q1–Q3.
 
 ```{code-cell} ipython3
 dice_old = pd.read_csv(OLD_OUT / 'dice' / 'dice_WMH_SynthSeg_lowres.csv')
@@ -616,7 +624,43 @@ side_by_side(both_bias, 'pct_diff', '+.0f')
 
 ## Discussion
 
-To be written after the results.
+**The 64mT images of the new dataset are smaller than the 3T images.** Three findings point the
+same way:
+
+- **ICV**: 7–10 % lower on 64mT in every subject and sequence. ICV is measured on each scan on
+  its own, without registration; the skull of an adult does not change between two scans, so the
+  difference is a property of the images. On the old dataset ICV agrees (+1 to +4 %).
+- **Affine scale factors**: to fit the 3T image, the 64mT image has to be stretched by 3–4 %
+  left–right, 2–5 % front–back and about 6 % bottom–top (volume factor 1.10–1.15), with a narrow
+  range between subjects. The largest stretch is along the 5 mm slice direction.
+- **Overlays after rigid registration**: 3T-only voxels form the outer rim of the cortex and
+  64mT-only voxels the inner rim, all around the brain: a uniform shrinkage, not a local
+  boundary error.
+
+The cause is not known yet (scanner geometry or the voxel size written into the image header are
+candidates) and is checked separately on the images and the scanner settings.
+
+**Affine registration removes most of the gap to the old dataset.** Cortex Dice rises from
+0.58 / 0.57 / 0.60 (T2w / T1w / FLAIR, rigid) to 0.69 / 0.64 / 0.67, CSF from 0.40 / 0.44 / 0.45 to
+0.57 / 0.54 / 0.56; the old dataset has 0.74 / 0.70 / 0.71 and 0.60 / 0.58 / 0.57. The remaining
+difference of 0.01–0.06 fits the stricter 3T reference of the new dataset (~1 mm instead of
+lowres) and the different 3T T1w contrast.
+
+**The three groups of Chapter 07 replicate.** Thalamus and brainstem reach 0.88–0.92 with an
+interquartile range of 0.01–0.02; the small structures are lower and spread more (3rd ventricle
+on FLAIR 0.65, IQR 0.12); cortex (0.64–0.69) and CSF (0.54–0.57) stay low but stable (IQR
+0.01–0.03). Cortex and CSF remain suitable benchmark structures on a second dataset, from a
+different 3T scanner and with no scans cut off.
+
+**Volume is a weak check here.** Removing the scale of each transform turns the ICV bias from
+−7 to −10 % into +3 to +5 %, i.e. the affine factor slightly over-corrects, and CSF and lateral
+ventricles end up 14–26 % too large. This supports judging the benchmark structures by Dice
+rather than volume (Chapter 07).
+
+**Consequence for a benchmark.** A global size difference between the two scanners lowers Dice
+in every region and most in thin, folded structures such as cortex and CSF. It must be removed
+before Dice is used to judge an enhancement method; otherwise the benchmark measures the scale
+error, which no enhancement of image quality would fix.
 
 Limitations to keep in mind when reading the comparison:
 
@@ -627,3 +671,6 @@ Limitations to keep in mind when reading the comparison:
 - **64mT in-plane resolution** is higher than in the old dataset (0.65–0.85 mm vs 1.6–1.7 mm);
   slice thickness is the same (5 mm).
 - **n = 12, one session each**; the old dataset averages repeated scans per subject (n = 11).
+- **Different registration**: new pairs affine, old pairs rigid. The old dataset was not run
+  with affine registration; its ICV agreement shows no global size difference, but an affine
+  transform, with more parameters, may raise Dice slightly on any data.
