@@ -219,3 +219,7 @@ A structure suitable as a benchmark must:
 model can generate plausible sulci in the wrong place while the volume still matches; Dice
 penalises misplaced boundaries, volume does not. CSF on FLAIR should be used with care, as FLAIR
 suppresses CSF signal by design.
+
+**Next: a second dataset.** Chapter 08 repeats the analysis on a new dataset (12 subjects, a
+different 3T scanner) to check whether cortex and CSF again show a gap to 3T that is stable
+across subjects and leaves room for an enhancement method to improve.
