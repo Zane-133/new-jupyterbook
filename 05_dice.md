@@ -482,8 +482,8 @@ In the table:
 - **Cut off only on 3T** (21 pairs): no loss; Dice is even slightly higher, since both maps end
   at the same plane (brainstem 0.91, 4th ventricle 0.73, against 0.89 and 0.69 when neither is
   cut).
-- **Cut off on both** (19 pairs): the 64mT scan is often cut higher, and the lower regions lose a
-  little: cerebellum cortex 0.84 → 0.80, brainstem 0.89 → 0.87. Thalamus is the same in both
+- **Cut off on both** (19 pairs): the lower regions lose a little: cerebellum cortex
+  0.84 → 0.80, brainstem 0.89 → 0.87. Thalamus is the same in both
   groups (0.88), so the drop comes from the cut, not from the subjects.
 - **Cut off only on 64mT** (2 pairs, 2 subjects): lower in every region, thalamus included: too
   few pairs, and the low values point to these two scans rather than to the cut.
