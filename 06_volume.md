@@ -22,8 +22,7 @@ bias (%) = (64mT − 3T lowres) / 3T lowres × 100
   lateral ventricle, WMH counted as WM (WMH-SynthSeg labels lesions separately; SynthSeg does not).
 - Subjects with several 64mT scans: bias per scan, then averaged per subject (n = 11).
 - No ICV normalisation. Zero volumes are kept (segmentation failure gives −100%).
-- About a third of the 64mT scans are cut off at the bottom of the field of view (Chapter 05,
-  *Scans cut off at the bottom*), so their cerebellum and brainstem volumes may be too small.
+- Some scans are cut off at the bottom of the scanned volume; see *Limitation* below.
 
 ```{code-cell} ipython3
 import matplotlib.pyplot as plt
@@ -165,6 +164,20 @@ bias_table('WMH_SynthSeg')
 ```{code-cell} ipython3
 plot_bias('WMH_SynthSeg')
 ```
+
+## Limitation: scans cut off at the bottom
+
+In the old dataset the lower cerebellum and brainstem lie outside the scanned volume on many
+scans (Chapter 05, *Scans cut off at the bottom*). A volume is measured in each scan's own
+volume, so a structure that is cut off simply loses its missing part:
+
+- **Affected**: cerebellum (cortex and white matter), brainstem, and the part of the CSF around
+  them; the 4th ventricle only on the worst scans.
+- **Direction**: when the 64mT scan is cut higher than the 3T scan, 64mT misses more and the bias
+  of these regions is too negative; when only the 3T scan is cut, the bias is too positive.
+- **Not affected**: cortex, white matter, deep grey matter and the lateral and 3rd ventricles,
+  which lie inside the scanned volume on every scan. ICV is also hardly affected: the missing
+  strip is small next to the whole intracranial volume.
 
 ## Conclusion
 

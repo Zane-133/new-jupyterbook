@@ -351,60 +351,140 @@ are outright omissions, not poorly drawn boundaries.
 
 ## Scans cut off at the bottom
 
-The 64mT scans cover 40 slices × 5 mm = 200 mm from bottom to top. On some scans this field of
-view was placed too high: the top of the head is far below the upper edge, and the lower
-cerebellum and brainstem lie below the lower edge, outside the image. A scan counts as cut off
-when its WMH-SynthSeg label map still has brainstem or cerebellum labels in its lowest 5 mm.
-The list is saved as `dice/fov_cut.csv`; Chapter 06 refers to it.
+"Cut off" means that part of a structure lies outside the scanned volume: the image ends before
+the structure does. In the old dataset the scanned volume is short from bottom to top: 200 mm on
+64mT (40 slices × 5 mm) and about 155 mm on 3T lowres (31 slices × 5 mm). Where it was placed too
+high, the lower cerebellum and brainstem were not scanned. The new dataset does not have this
+problem (Chapter 08).
+
+### Two cases
+
+Coronal and sagittal slices through the centre of the cerebellum, 64mT T1w. Blue = cerebellum,
+red = brainstem (WMH-SynthSeg labels); yellow = edge of the scanned volume.
+
+- **sub-0025** (top): the cerebellum ends well above the lower edge; the neck is visible below it.
+- **sub-0011** (bottom): the cerebellum and brainstem run into the lower edge and are cut flat.
+  The top of the head lies about 8 cm below the upper edge: the volume was placed too high.
 
 ```{code-cell} ipython3
-FOV = DICE / 'fov_cut.csv'
+from matplotlib.patches import Rectangle
+
+LOWRES = pd.read_csv(REG / 'pairs_lowres.csv', keep_default_na=False).set_index('pair_id')
 
 
-def cut_off(path):
-    """Label voxels in the lowest 5 mm of a 1 mm label map, and the empty space above the head."""
-    v = np.rint(np.asarray(nib.as_closest_canonical(nib.load(path)).dataobj)).astype(int)
-    head = np.nonzero((v > 0).any(axis=(0, 1)))[0]                   # slices with any label
-    low = v[:, :, :5]
-    return dict(brainstem_vox=int(np.isin(low, [16]).sum()),
-                cerebellum_vox=int(np.isin(low, [7, 8, 46, 47]).sum()),
-                empty_top_mm=int(v.shape[2] - 1 - head.max()))
+def show_cut(pair_ids):
+    """Coronal and sagittal slice through the cerebellum centre, 64mT image on the label-map grid."""
+    fig, axes = plt.subplots(len(pair_ids), 2, figsize=(11, 5 * len(pair_ids)), squeeze=False)
+    for row, pid in zip(axes, pair_ids):
+        r = LOWRES.loc[pid]
+        seg = nib.as_closest_canonical(nib.load(r['mov_WMH_SynthSeg']))
+        img = resample_from_to(nib.load(r['mov_raw']), seg, order=1).get_fdata()
+        lab = np.rint(np.asarray(seg.dataobj)).astype(int)
+        cb, bs = np.isin(lab, [7, 8, 46, 47]), lab == 16
+        c = np.argwhere(cb).mean(0).astype(int)                              # centre of the cerebellum
+        for ax, (view, cut) in zip(row, [('coronal', 1), ('sagittal', 0)]):
+            sl = [slice(None)] * 3
+            sl[cut] = c[cut]
+            im = img[tuple(sl)].T
+            h, w = im.shape
+            over = np.zeros((h, w, 4))
+            over[cb[tuple(sl)].T] = [0.1, 0.4, 1, 0.45]                     # cerebellum: blue
+            over[bs[tuple(sl)].T] = [1, 0.1, 0.1, 0.45]                     # brainstem: red
+            ax.imshow(im, cmap='gray', origin='lower', vmax=np.percentile(img, 99.5))
+            ax.imshow(over, origin='lower')
+            ax.add_patch(Rectangle((-0.5, -0.5), w, h, fill=False, edgecolor='yellow', lw=1.5))
+            ax.set_xlim(-15, w + 15)
+            ax.set_ylim(-15, h + 15)
+            ax.set_facecolor('tab:blue')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(f"{r['subject']} {r['session']} {r['modality']}, {view}", fontsize=10)
+    plt.tight_layout()
+    plt.show()
 
 
-if not FOV.exists():
-    lows = pd.read_csv(REG / 'pairs_lowres.csv', keep_default_na=False)
-    fov = pd.DataFrame([dict(pair_id=r.pair_id, subject=r.subject, session=r.session, run=r.run,
-                             modality=r.modality) | cut_off(r.mov_WMH_SynthSeg) for r in lows.itertuples()])
-    fov['cut'] = (fov.brainstem_vox > 0) | (fov.cerebellum_vox > 0)
-    fov.to_csv(FOV, index=False)
-fov = pd.read_csv(FOV, keep_default_na=False)
-fov.groupby('modality').agg(scans=('cut', 'size'), cut_off=('cut', 'sum'),
-                            empty_top_mm=('empty_top_mm', 'median')).loc[['T2w', 'T1w', 'FLAIR']]
+show_cut(['sub-0025_ses-01_run-1_T1w__lowres', 'sub-0011_ses-01_run-1_T1w__lowres'])
 ```
 
-The scans cut off, most cerebellum outside first. `brainstem_vox` and `cerebellum_vox` are the
-label voxels (1 mm³ each) in the lowest 5 mm: the more, the more of the structure is likely
-missing below.
+### How many scans
+
+A scan counts as cut off when its label map still has cerebellum or brainstem labels in its
+lowest 5 mm. Checked on the 64mT and the 3T lowres label map of every pair; saved as
+`dice/cut_off.csv`.
 
 ```{code-cell} ipython3
-(fov[fov.cut].sort_values('cerebellum_vox', ascending=False)
- [['subject', 'session', 'run', 'modality', 'brainstem_vox', 'cerebellum_vox', 'empty_top_mm']]
+CUT = DICE / 'cut_off.csv'
+
+
+def lowest_5mm(path):
+    """Cerebellum and brainstem label voxels in the lowest 5 mm of a 1 mm label map."""
+    v = np.rint(np.asarray(nib.as_closest_canonical(nib.load(path)).dataobj)).astype(int)
+    head = np.nonzero((v > 0).any(axis=(0, 1)))[0]
+    low = v[:, :, :5]
+    return int(np.isin(low, [7, 8, 46, 47]).sum()), int(np.isin(low, [16]).sum()), int(v.shape[2] - 1 - head.max())
+
+
+if not CUT.exists():
+    rows = []
+    for pid, r in LOWRES.iterrows():
+        cb64, bs64, top64 = lowest_5mm(r['mov_WMH_SynthSeg'])
+        cb3, bs3, _ = lowest_5mm(r['fix_WMH_SynthSeg'])
+        rows.append(dict(pair_id=pid, subject=r['subject'], session=r['session'], run=r['run'],
+                         modality=r['modality'], cerebellum_64mT=cb64, brainstem_64mT=bs64,
+                         empty_top_64mT_mm=top64, cerebellum_3T=cb3, brainstem_3T=bs3))
+    c = pd.DataFrame(rows)
+    c['cut_64mT'] = (c.cerebellum_64mT + c.brainstem_64mT) > 0
+    c['cut_3T'] = (c.cerebellum_3T + c.brainstem_3T) > 0
+    c['group'] = [{(0, 0): 'neither', (0, 1): '3T only', (1, 0): '64mT only', (1, 1): 'both'}[k]
+                  for k in zip(c.cut_64mT, c.cut_3T)]
+    c.to_csv(CUT, index=False)
+cut = pd.read_csv(CUT, keep_default_na=False)
+GROUPS = ['neither', '3T only', '64mT only', 'both']
+(cut.groupby('modality').agg(pairs=('pair_id', 'size'), cut_64mT=('cut_64mT', 'sum'), cut_3T=('cut_3T', 'sum'))
+ .loc[['T2w', 'T1w', 'FLAIR']])
+```
+
+64mT scans cut off, most cerebellum outside first (label voxels of 1 mm³ in the lowest 5 mm):
+
+```{code-cell} ipython3
+(cut[cut.cut_64mT].sort_values('cerebellum_64mT', ascending=False)
+ [['subject', 'session', 'run', 'modality', 'cerebellum_64mT', 'brainstem_64mT', 'empty_top_64mT_mm']]
  .reset_index(drop=True))
 ```
 
-Effect on Dice: WMH-SynthSeg, 64mT vs 3T lowres, the regions near the lower edge. One value per
-scan (not averaged per subject, since being cut off is a property of the scan).
-Median Dice (number of scans).
+### Effect on Dice
+
+Dice is computed on the 3T lowres grid, so tissue outside the 3T volume is left out of both maps.
+The pairs fall into four groups. WMH-SynthSeg, all sequences together, one value per pair:
+median Dice (number of pairs). Thalamus lies high in the head and is never cut off: it shows
+whether the groups differ for other reasons than the cut.
 
 ```{code-cell} ipython3
-LOW = ['Brainstem', 'Cerebellum-Cortex', 'Cerebellum-WM', '4th-Ventricle']
-d = (dice[(dice.tool == 'WMH_SynthSeg') & (dice.acq == 'lowres') & dice.region.isin(LOW)]
-     .merge(fov[['pair_id', 'cut']], on='pair_id'))
-d['group'] = d.cut.map({False: 'not cut', True: 'cut off'})
-q = d.groupby(['region', 'modality', 'group']).dice_np.agg(['median', 'size'])
+SHOWN = ['Brainstem', 'Cerebellum-Cortex', 'Cerebellum-WM', '4th-Ventricle', 'Cortex', 'CSF', 'Thalamus']
+d = (dice[(dice.tool == 'WMH_SynthSeg') & (dice.acq == 'lowres') & dice.region.isin(SHOWN)]
+     .merge(cut[['pair_id', 'group']], on='pair_id'))
+q = d.groupby(['region', 'group']).dice_np.agg(['median', 'size'])
 (q.apply(lambda r: f"{r['median']:.2f} ({int(r['size'])})", axis=1)
- .unstack(['modality', 'group']).loc[LOW, [(m, g) for m in ['T2w', 'T1w', 'FLAIR'] for g in ['not cut', 'cut off']]])
+ .unstack('group').reindex(index=SHOWN, columns=GROUPS).fillna('-'))
 ```
+
+What the cut does to Dice:
+
+- **Cut off only on 3T** (21 pairs): nothing is lost. The part below the 3T volume is left out of
+  both maps, and both maps end at the same plane, so Dice is even slightly higher (brainstem 0.91,
+  4th ventricle 0.73, against 0.89 and 0.69 when neither is cut).
+- **Cut off on both** (19 pairs): when the 64mT volume ends higher than the 3T volume, the strip
+  between them is 3T only. The lower regions lose a little: cerebellum cortex 0.84 → 0.80,
+  brainstem 0.89 → 0.87. Thalamus is the same in both groups (0.88), so the drop comes from the
+  cut, not from the subjects.
+- **Cut off only on 64mT** (2 pairs, 2 subjects): lower in every region, thalamus included: too
+  few pairs, and the low values point to these two scans rather than to the cut.
+- **Not affected**: cortex and CSF, the benchmark structures of Chapter 07, and every region
+  higher in the head.
+- The brainstem and cerebellum values of the old dataset (Dice here, volume in Chapter 06) are
+  incomplete for the cut-off scans: they describe only the part inside the scanned volume, and
+  the lower medulla and lowest cerebellum are never compared. The new dataset, which is not cut
+  off (Chapter 08), is the more reliable reference for these regions.
 
 ## Conclusion
 
@@ -417,6 +497,9 @@ Each tool is compared with its own 3T segmentation. On 64mT scans:
   WMH-SynthSeg has shorter error bars, i.e. less variation between subjects.
 - **Outright failures**: SynthSeg misses a structure almost entirely (Dice < 0.1) in 64
   region–pair cases, most often the 4th ventricle (28 of 61 pairs); WMH-SynthSeg never does.
+
+- **Scans cut off at the bottom** lower the Dice of cerebellum and brainstem slightly when the
+  64mT scan is cut higher than the 3T scan; cortex and CSF are not affected.
 
 **WMH-SynthSeg is the more robust tool on 64mT scans.**
 
