@@ -82,7 +82,6 @@ for group, g in scans.groupby('group'):
 | Per group | `vol_<group>.csv`, `qc_<group>.csv` | `lfbook/results/old/seg/SynthSeg/volumes/` | Volumes and QC scores of one group |
 | Log | `synthseg_old.log` | `lfbook/results/logs/` | Run log |
 
-
 ```{code-cell} ipython3
 from datetime import datetime
 
@@ -105,25 +104,33 @@ pd.DataFrame(rows)
 
 SynthSeg first resamples every input image to 1 × 1 × 1 mm and segments the resampled image, so the label map is on the 1 mm grid, not on the raw image's grid. The resampled image is saved as `<scan>_resampled.nii.gz`.
 
-Below: sub-0011, 64mT T1w, middle axial slice of the raw image (left) and the resampled image (right).
+Below: sub-0015, 64mT T1w. Top row: raw image; bottom row: resampled image; axial, coronal and sagittal slices through the same point. The 5 mm slices show as steps in the coronal and sagittal views; resampling smooths the steps but adds no detail.
 
 ```{code-cell} ipython3
 import nibabel as nib
+import numpy as np
 import matplotlib.pyplot as plt
 
-SCAN = 'sub-0011_ses-01_run-1_T1w'
-LEVEL = 0.3  # height of the axial slice: 0 = bottom, 0.5 = middle, 1 = top
+SCAN = 'sub-0015_ses-01_run-1_T1w'   # not cut off at the bottom (see Chapter 05)
+POINT = (0.5, 0.5, 0.5)              # where to cut, as a fraction of the raw image: (left-right, back-front, bottom-top)
 
-raw = nib.as_closest_canonical(nib.load(scans.set_index('scan').src[SCAN]))
-res = nib.as_closest_canonical(nib.load(SS / '64mT/sub-0011/ses-01' / f'{SCAN}_resampled.nii.gz'))
+row = scans[scans.scan == SCAN].iloc[0]
+raw = nib.as_closest_canonical(nib.load(row['src']))
+res = nib.as_closest_canonical(nib.load(seg_path(OLD_OUT, 'SynthSeg', row).parent / f'{SCAN}_resampled.nii.gz'))
+xyz = raw.affine @ [*(np.array(POINT) * (np.array(raw.shape[:3]) - 1)), 1]   # the point in scanner coordinates
 
-fig, axes = plt.subplots(1, 2, figsize=(16, 8))
-for ax, img, name in zip(axes, (raw, res), ('raw', 'resampled')):
+VIEWS = {'axial': (2, (0, 1)), 'coronal': (1, (0, 2)), 'sagittal': (0, (1, 2))}   # cut axis, shown axes
+fig, axes = plt.subplots(2, 3, figsize=(18, 11))
+for ax_row, (img, name) in zip(axes, [(raw, 'raw'), (res, 'resampled')]):
     data = img.get_fdata()
-    dx, dy, dz = img.header.get_zooms()[:3]
-    ax.imshow(data[:, :, int(data.shape[2] * LEVEL)].T, cmap='gray', origin='lower', aspect=dy / dx)
-    ax.set_title(f'{name}\nvoxel {dx:.1f} × {dy:.1f} × {dz:.1f} mm, matrix {data.shape}')
-    ax.axis('off')
+    vox = img.header.get_zooms()[:3]
+    ijk = np.round(np.linalg.inv(img.affine) @ xyz)[:3].astype(int)      # same point in this image
+    for ax, (view, (cut, (a, b))) in zip(ax_row, VIEWS.items()):
+        sl = [slice(None)] * 3
+        sl[cut] = int(np.clip(ijk[cut], 0, data.shape[cut] - 1))
+        ax.imshow(data[tuple(sl)].T, cmap='gray', origin='lower', aspect=vox[b] / vox[a])
+        ax.set_title(f'{name}, {view}\nvoxel {vox[0]:.1f} × {vox[1]:.1f} × {vox[2]:.1f} mm, matrix {data.shape}')
+        ax.axis('off')
 plt.tight_layout()
 plt.show()
 ```
@@ -249,7 +256,7 @@ Two things change the image:
 
 #### Examples
 
-Five scans of `sub-0011`: two HF (3T highres T2w, FLAIR) and three LF (64mT T1w, T2w, FLAIR),
+Five scans of `sub-0015`: two HF (3T highres T2w, FLAIR) and three LF (64mT T1w, T2w, FLAIR),
 before and after the resampling above. Each panel shows the whole head (220 mm window), with
 every voxel drawn as a block of its real size. Left: axial; right: coronal, where the slice
 thickness shows.
@@ -281,8 +288,8 @@ def show(ax, img, vox, start, centre, title, half=110):
     ax.axis('off')
 
 
-EXAMPLES = ['sub-0011_acq-highres_T2w', 'sub-0011_acq-highres_FLAIR',                        # HF
-            'sub-0011_ses-01_run-1_T1w', 'sub-0011_ses-01_run-1_T2w', 'sub-0011_ses-01_run-1_FLAIR']  # LF
+EXAMPLES = ['sub-0015_acq-highres_T2w', 'sub-0015_acq-highres_FLAIR',                        # HF
+            'sub-0015_ses-01_run-1_T1w', 'sub-0015_ses-01_run-1_T2w', 'sub-0015_ses-01_run-1_FLAIR']  # LF
 EXAMPLES = [s for s in EXAMPLES if s in set(scans.scan)]                                 # test run
 fig, axes = plt.subplots(len(EXAMPLES), 4, figsize=(12, 3.4 * len(EXAMPLES)), squeeze=False)
 for ax, scan in zip(axes, EXAMPLES):
