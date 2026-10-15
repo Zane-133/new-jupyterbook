@@ -22,6 +22,8 @@ bias (%) = (64mT − 3T lowres) / 3T lowres × 100
   lateral ventricle, WMH counted as WM (WMH-SynthSeg labels lesions separately; SynthSeg does not).
 - Subjects with several 64mT scans: bias per scan, then averaged per subject (n = 11).
 - No ICV normalisation. Zero volumes are kept (segmentation failure gives −100%).
+- About a third of the 64mT scans are cut off at the bottom of the field of view (Chapter 05,
+  *Scans cut off at the bottom*), so their cerebellum and brainstem volumes may be too small.
 
 ```{code-cell} ipython3
 import matplotlib.pyplot as plt

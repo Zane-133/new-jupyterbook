@@ -349,6 +349,63 @@ show_failure('sub-0027_ses-01_run-1_T1w__lowres', ['3rd-Ventricle', 'Pallidum', 
 In each case WMH-SynthSeg, run on the same 64mT scan, finds the structure. SynthSeg's failures
 are outright omissions, not poorly drawn boundaries.
 
+## Scans cut off at the bottom
+
+The 64mT scans cover 40 slices × 5 mm = 200 mm from bottom to top. On some scans this field of
+view was placed too high: the top of the head is far below the upper edge, and the lower
+cerebellum and brainstem lie below the lower edge, outside the image. A scan counts as cut off
+when its WMH-SynthSeg label map still has brainstem or cerebellum labels in its lowest 5 mm.
+The list is saved as `dice/fov_cut.csv`; Chapter 06 refers to it.
+
+```{code-cell} ipython3
+FOV = DICE / 'fov_cut.csv'
+
+
+def cut_off(path):
+    """Label voxels in the lowest 5 mm of a 1 mm label map, and the empty space above the head."""
+    v = np.rint(np.asarray(nib.as_closest_canonical(nib.load(path)).dataobj)).astype(int)
+    head = np.nonzero((v > 0).any(axis=(0, 1)))[0]                   # slices with any label
+    low = v[:, :, :5]
+    return dict(brainstem_vox=int(np.isin(low, [16]).sum()),
+                cerebellum_vox=int(np.isin(low, [7, 8, 46, 47]).sum()),
+                empty_top_mm=int(v.shape[2] - 1 - head.max()))
+
+
+if not FOV.exists():
+    lows = pd.read_csv(REG / 'pairs_lowres.csv', keep_default_na=False)
+    fov = pd.DataFrame([dict(pair_id=r.pair_id, subject=r.subject, session=r.session, run=r.run,
+                             modality=r.modality) | cut_off(r.mov_WMH_SynthSeg) for r in lows.itertuples()])
+    fov['cut'] = (fov.brainstem_vox > 0) | (fov.cerebellum_vox > 0)
+    fov.to_csv(FOV, index=False)
+fov = pd.read_csv(FOV, keep_default_na=False)
+fov.groupby('modality').agg(scans=('cut', 'size'), cut_off=('cut', 'sum'),
+                            empty_top_mm=('empty_top_mm', 'median')).loc[['T2w', 'T1w', 'FLAIR']]
+```
+
+The scans cut off, most cerebellum outside first. `brainstem_vox` and `cerebellum_vox` are the
+label voxels (1 mm³ each) in the lowest 5 mm: the more, the more of the structure is likely
+missing below.
+
+```{code-cell} ipython3
+(fov[fov.cut].sort_values('cerebellum_vox', ascending=False)
+ [['subject', 'session', 'run', 'modality', 'brainstem_vox', 'cerebellum_vox', 'empty_top_mm']]
+ .reset_index(drop=True))
+```
+
+Effect on Dice: WMH-SynthSeg, 64mT vs 3T lowres, the regions near the lower edge. One value per
+scan (not averaged per subject, since being cut off is a property of the scan).
+Median Dice (number of scans).
+
+```{code-cell} ipython3
+LOW = ['Brainstem', 'Cerebellum-Cortex', 'Cerebellum-WM', '4th-Ventricle']
+d = (dice[(dice.tool == 'WMH_SynthSeg') & (dice.acq == 'lowres') & dice.region.isin(LOW)]
+     .merge(fov[['pair_id', 'cut']], on='pair_id'))
+d['group'] = d.cut.map({False: 'not cut', True: 'cut off'})
+q = d.groupby(['region', 'modality', 'group']).dice_np.agg(['median', 'size'])
+(q.apply(lambda r: f"{r['median']:.2f} ({int(r['size'])})", axis=1)
+ .unstack(['modality', 'group']).loc[LOW, [(m, g) for m in ['T2w', 'T1w', 'FLAIR'] for g in ['not cut', 'cut off']]])
+```
+
 ## Conclusion
 
 Each tool is compared with its own 3T segmentation. On 64mT scans:
