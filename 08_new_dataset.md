@@ -643,8 +643,10 @@ candidates) and is checked separately on the images and the scanner settings.
 **Affine registration removes most of the gap to the old dataset.** Cortex Dice rises from
 0.58 / 0.57 / 0.60 (T2w / T1w / FLAIR, rigid) to 0.69 / 0.64 / 0.67, CSF from 0.40 / 0.44 / 0.45 to
 0.57 / 0.54 / 0.56; the old dataset has 0.74 / 0.70 / 0.71 and 0.60 / 0.58 / 0.57. The remaining
-difference of 0.01–0.06 fits the stricter 3T reference of the new dataset (~1 mm instead of
-lowres) and the different 3T T1w contrast.
+difference of 0.01–0.06 is largest on T1w, where the new 3T scan has a different contrast (MP2RAGE
+INV2). The higher resolution of the new 3T reference is a less likely cause: on the old dataset,
+replacing the 3T lowres reference by 3T highres changes the Dice of most regions by at most 0.02
+(Chapter 05). Different subjects and scanners may also contribute.
 
 **The three groups of Chapter 07 replicate.** Thalamus and brainstem reach 0.88–0.92 with an
 interquartile range of 0.01–0.02; the small structures are lower and spread more (3rd ventricle

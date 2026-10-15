@@ -165,6 +165,34 @@ bias_table('WMH_SynthSeg')
 plot_bias('WMH_SynthSeg')
 ```
 
+## Resolution or field strength?
+
+The 3T scans of the old dataset exist at two resolutions. Comparing 3T lowres with 3T highres
+(same scanner, same contrast) shows the effect of resolution alone; comparing 64mT with 3T lowres
+(similar voxel size) shows mainly the effect of the field strength. WMH-SynthSeg, median volume
+bias (%) over 11 subjects; ICV added. The FLAIR highres scans are also 5.5 mm thick, so for FLAIR
+only the in-plane resolution differs.
+
+```{code-cell} ipython3
+raw = pd.read_csv(FILES['WMH_SynthSeg'], keep_default_na=False)
+v = vols['WMH_SynthSeg'].assign(ICV=raw['Intracranial-volume'].astype(float))
+cols, key = list(REGIONS) + ['ICV'], ['subject', 'modality']
+lo = v[v.acq == 'lowres'].set_index(key)[cols]
+hi = v[v.acq == 'highres'].set_index(key)[cols]
+lf = v[v.field_strength == '64mT'].set_index(key)[cols]
+res = (lo - hi.reindex(lo.index)) / hi.reindex(lo.index) * 100                           # resolution only
+fld = ((lf - lo.reindex(lf.index)) / lo.reindex(lf.index) * 100).groupby(level=key).mean()  # field strength
+med = pd.concat({'resolution': res.groupby(level='modality').median().T,
+                 'field strength': fld.groupby(level='modality').median().T}, axis=1).swaplevel(axis=1)
+med[[(m, k) for m in MODS for k in ['resolution', 'field strength']]].loc[cols].round(0)
+```
+
+Resolution alone changes most volumes by less than 5 %; the exceptions are the third ventricle,
+the cerebellar white matter and the CSF on T2w. The bias of 64mT against 3T lowres is often larger
+and of different sign, so the gap measured in this chapter reflects mainly the field strength.
+The ICV row also shows that the two scanners image the head at the same size (64mT within a few
+percent of 3T lowres).
+
 ## Limitation: scans cut off at the bottom
 
 In the old dataset the lower cerebellum and brainstem lie outside the scanned volume on many
