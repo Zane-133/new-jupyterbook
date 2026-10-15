@@ -171,13 +171,19 @@ In the old dataset the lower cerebellum and brainstem lie outside the scanned vo
 scans (Chapter 05, *Scans cut off at the bottom*). A volume is measured in each scan's own
 volume, so a structure that is cut off simply loses its missing part:
 
-- **Affected**: cerebellum (cortex and white matter), brainstem, and the part of the CSF around
-  them; the 4th ventricle only on the worst scans.
-- **Direction**: when the 64mT scan is cut higher than the 3T scan, 64mT misses more and the bias
-  of these regions is too negative; when only the 3T scan is cut, the bias is too positive.
-- **Not affected**: cortex, white matter, deep grey matter and the lateral and 3rd ventricles,
-  which lie inside the scanned volume on every scan. ICV is also hardly affected: the missing
-  strip is small next to the whole intracranial volume.
+- **Why it matters**: the volume bias compares 64mT with 3T, so what counts is how the two cuts
+  relate.
+  - **Cut at different heights**: the strip scanned by only one of the two enters the comparison
+    as a difference. The bias is too negative when the 64mT scan is cut higher, too positive when
+    the 3T scan is cut higher.
+  - **Cut at the same height**: the comparison is fair but incomplete. The missing part is in
+    neither volume, so the bias describes only the scanned part of the structure.
+- **Regions affected**: cerebellum cortex and white matter, brainstem (above all the medulla), and
+  the CSF around them; the 4th ventricle only on the worst scans; the lowest temporal and
+  occipital cortex marginally.
+- **Not affected**: cortex as a whole, white matter, deep grey matter and the lateral and 3rd
+  ventricles, which lie inside the scanned volume on every scan. ICV is hardly affected: the
+  missing strip is small next to the whole intracranial volume.
 
 ## Conclusion
 
