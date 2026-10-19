@@ -135,6 +135,8 @@ plt.tight_layout()
 plt.show()
 ```
 
+The steps matter more after registration, which rotates the 64mT scan onto the 3T grid. Moved without interpolation (nearest neighbour: each new voxel copies the closest old voxel), every 5 mm slice stays a 5 mm block; the blocks are now tilted, so their edges cross the 3T grid at an angle and show as oblique stair-step lines. With interpolation (trilinear), each new voxel is a weighted mean of the neighbouring slices, so the steps blend into a smooth edge; as above, no detail is added. The comparison on a registered pair is in {ref}`Chapter 04 <reg-interpolation>`.
+
 ### Merge the tables
 
 The 9 volume tables and 9 QC tables are stacked into one table each, with the scan-table columns

@@ -129,3 +129,62 @@ for ax, r in zip(axes, examples):
         overlay(a, hf[tuple(sl)], lf[tuple(sl)], vox[shown], name + view)
 fig.tight_layout()
 ```
+
+(reg-interpolation)=
+### Interpolation: nearest vs trilinear
+
+The pair with the largest rotation (first row above) is moved again, twice: with nearest
+neighbour (`mri_vol2vol --nearest`: each new voxel copies the value of the closest 64mT voxel,
+no mixing) and with trilinear interpolation (`--trilin`, as above). The target is the 1 mm grid
+of the 3T SynthSeg label map (Chapter 03), not the 3T scan itself: the 3T lowres scan also has
+5 mm slices, which would hide the difference. Same `.lta`, so the position is the same; only
+the interpolation differs. The 64mT scan alone is shown in gray, in the two views that cut
+across its thick slices, at three positions each.
+
+```{code-cell} ipython3
+r = examples[0]                                    # largest rotation
+moved = {}
+for name in ['nearest', 'trilin']:
+    out = QC / f"{r['pair_id']}_on_3T_1mm_{name}.nii.gz"
+    if not out.exists():
+        fs(f"mri_vol2vol --mov {r['mov_raw']} --targ {r['fix_SynthSeg']} --lta {xfm / r['pair_id']}.lta "
+           f"--{name} --o {out} --no-save-reg", log=LOGS / 'register_qc_old.log', show=False)
+    moved[name], vox = load_ras(out)
+top = np.percentile(moved['trilin'][moved['trilin'] > 0], 99)
+centre = [int(np.average(np.arange(n), weights=moved['trilin'].sum(axis=tuple(a for a in range(3) if a != d))))
+          for d, n in enumerate(moved['trilin'].shape)]   # brain centre (intensity)
+
+_, lf_vox = load_ras(r['mov_raw'])
+thick = int(np.argmax(lf_vox))                     # slice direction of the 64mT scan (R, A or S)
+views = {v: c for v, c in VIEWS.items() if c[0] != thick}   # the two views that show the slices
+OFFSETS_MM = (-20, 0, 20)                          # slice positions, relative to the brain centre
+
+fig, axes = plt.subplots(2 * len(views), len(OFFSETS_MM), figsize=(12, 8 * len(views)))
+for i, (view, (cut, shown)) in enumerate(views.items()):
+    for j, name in enumerate(moved):
+        for ax, off in zip(axes[2 * i + j], OFFSETS_MM):
+            sl = [slice(None)] * 3
+            sl[cut] = centre[cut] + round(off / vox[cut])
+            img = moved[name][tuple(sl)]
+            ext = (0, img.shape[0] * vox[shown[0]], 0, img.shape[1] * vox[shown[1]])
+            ax.imshow(img.T, cmap='gray', origin='lower', extent=ext, vmin=0, vmax=top,
+                      interpolation='nearest')    # draw the voxels as they are
+            ax.set_title(f'{name}, {view}, {off:+d} mm', fontsize=9)
+            ax.axis('off')
+fig.suptitle(f"{r['subject']} {r['session']} {r['modality']} on the 3T 1 mm grid, rotation {r['angle']:.1f}°, "
+             f"64mT voxel {lf_vox[0]:.1f} × {lf_vox[1]:.1f} × {lf_vox[2]:.1f} mm (R × A × S)")
+fig.tight_layout()
+```
+
+**Why oblique lines appear.** The 64mT scan is made of thick slices. With nearest neighbour,
+every new voxel copies one 64mT voxel, so each thick slice is copied as a block of identical
+values and the image jumps from one block to the next. The registration also rotates the scan,
+so the blocks are tilted against the 1 mm grid: their edges cut across the voxels at an angle
+and show as oblique stair-step lines (nearest rows). Trilinear interpolation takes a
+distance-weighted mean of the neighbouring slices, so the value changes gradually from one slice
+to the next and the steps disappear (trilin rows). It adds no detail: the image is smoother,
+not sharper.
+
+This is why SynthSeg and WMH-SynthSeg resample each scan to 1 mm with interpolation before
+segmenting (Chapter 03): the label maps are drawn on a smooth 1 mm image, so moving them with
+`--nearest` in Chapter 05 shifts 1 mm voxels, not 5 mm blocks.
