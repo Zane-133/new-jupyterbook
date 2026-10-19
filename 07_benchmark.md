@@ -28,13 +28,18 @@ From here on only WMH-SynthSeg is used: 64mT compared with 3T lowres, repeated s
 subject (n = 11), the same 17 regions as Chapters 05 and 06.
 
 ```{code-cell} ipython3
+import sys
+
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import pandas as pd
-from nibabel.processing import resample_from_to
+import torch
 
-from common import OLD_OUT
+from common import OLD_OUT, P, LOGS, fs
+
+sys.path.insert(0, str(P['wmh_code'] / 'WMHSynthSeg'))
+from utils import MRIread, align_volume_to_ref, myzoom_torch
 
 DICE, REG, VOL = OLD_OUT / 'dice', OLD_OUT / 'reg', OLD_OUT / 'volume'
 MODS = ['T2w', 'T1w', 'FLAIR']
@@ -105,7 +110,12 @@ The remaining regions sit in between and are not discussed further.
 
 For each group: Dice as median (IQR) of 11 subjects; volume bias (Chapter 06) as median % [Q1, Q3];
 and one subject on T2w, chosen as the pair whose Dice is closest to the group median.
-Red = 3T only, blue = 64mT only, purple = both, on the 3T image.
+
+The figure shows four axial slices through the structures. For each slice: the 3T and 64mT
+images (top), each with its own label map (bottom; red = 3T, blue = 64mT), and the two label maps
+on the 3T image (right; red = 3T only, blue = 64mT only, purple = both). The images are the ones
+WMH-SynthSeg segmented (1 mm, Chapter 03); the 64mT image and label map are moved onto the 3T grid
+with the Chapter 04 registration, so all five panels show the same slice.
 
 ```{code-cell} ipython3
 def group_table(regions):
@@ -121,39 +131,83 @@ def group_table(regions):
     return pd.DataFrame(rows).T
 
 
-def show_overlay(regions, mod='T2w', n_slices=4, zoom=False):
-    """zoom=True crops to the structures instead of the whole head."""
+FIG = DICE / 'work' / 'figures_07'                 # images on the 3T label-map grid, for the figures
+RED, BLUE, PURPLE = [0.85, 0.1, 0.1], [0.1, 0.35, 0.9], [0.6, 0.2, 0.75]
+
+
+def wmh_input(src, seg, dst):
+    """Save the image WMH-SynthSeg segmented (as Chapter 03: RAS, divided by its maximum,
+    1 mm with myzoom_torch) to dst. It is on the grid of its label map `seg`."""
+    if dst.exists():
+        return
+    image, aff = MRIread(src)
+    x = torch.tensor(np.squeeze(image).astype(float))
+    x, aff2 = align_volume_to_ref(x, aff, aff_ref=np.eye(4), return_aff=True, n_dims=3)
+    x = myzoom_torch(x / torch.max(x), np.sqrt(np.sum(aff2 ** 2, axis=0))[:-1], device='cpu').numpy()
+    lab = nib.load(seg)
+    assert x.shape == lab.shape, (src, x.shape, lab.shape)
+    nib.save(nib.Nifti1Image(x.astype(np.float32), lab.affine), dst)
+
+
+def case_images(pid):
+    """3T image, 64mT image moved onto the 3T grid, and the two Chapter 05 label maps (all on one grid)."""
+    r = pairs.loc[pid]
+    FIG.mkdir(parents=True, exist_ok=True)
+    hf_img, lf_img, moved = (FIG / f'{pid}_{s}.nii.gz' for s in ['3T_1mm', '64mT_1mm', '64mT_on_3T'])
+    wmh_input(r['fix_raw'], r['fix_WMH_SynthSeg'], hf_img)
+    wmh_input(r['mov_raw'], r['mov_WMH_SynthSeg'], lf_img)
+    if not moved.exists():                         # same transform as the 64mT label map (Chapter 05)
+        fs(f"mri_vol2vol --mov {lf_img} --targ {r['fix_WMH_SynthSeg']} --lta {REG / 'xfm_lowres'}/{pid}.lta "
+           f"--trilin --o {moved} --no-save-reg", log=LOGS / 'figures_07.log', show=False)
+    work = DICE / 'work' / 'WMH_SynthSeg_lowres'
+    load = lambda f: np.asarray(nib.as_closest_canonical(nib.load(f)).dataobj)
+    return [load(f) for f in [hf_img, moved, work / f'{pid}_3T_h.nii.gz', work / f'{pid}_64mT_h.nii.gz']]
+
+
+def plot_case(title, regions, hf, lf, hf_lab, lf_lab, n_slices=4, per_row=2):
+    """Per slice: 2 x 2 grid (3T, 64mT; each with its label map) and the overlap on the right."""
     ids = [LABEL[r] for r in regions]
+    A, B = np.isin(hf_lab, ids), np.isin(lf_lab, ids)
+    norm = lambda v: (v / np.percentile(v[v > 0], 99)).clip(0, 1)
+    hf, lf = norm(hf), norm(lf)
+    xs, ys, _ = np.where(hf > 0.05)                                   # whole head
+    crop = np.s_[xs.min():xs.max() + 1, ys.min():ys.max() + 1]
+    z = np.where((A | B).any(axis=(0, 1)))[0]                         # slices containing the structures
+    ks = z[np.arange(1, n_slices + 1) * len(z) // (n_slices + 1)]
+
+    def panel(ax, img, masks, name):
+        ax.imshow(np.rot90(img[crop]), cmap='gray', vmin=0, vmax=1)
+        over = np.zeros(img.shape + (4,))
+        for m, c in masks:
+            over[m] = c + [0.55]
+        ax.imshow(np.rot90(over[crop]))
+        ax.set_title(name, fontsize=8, pad=2)
+        ax.axis('off')
+
+    rows = int(np.ceil(n_slices / per_row))
+    h, w = xs.max() - xs.min() + 1, ys.max() - ys.min() + 1           # panel aspect after rot90: w / h
+    fig = plt.figure(figsize=(per_row * 4 * 2.8 * h / w + 0.4, rows * 2 * 2.8 + 0.8))
+    outer = fig.add_gridspec(rows, per_row, left=0.01, right=0.99, bottom=0.01, top=0.94,
+                             wspace=0.04, hspace=0.1)
+    for n, k in enumerate(ks):
+        g = outer[n // per_row, n % per_row].subgridspec(2, 4, wspace=0.03, hspace=0.12)
+        a, b = A[:, :, k], B[:, :, k]
+        panel(fig.add_subplot(g[0, 0]), hf[:, :, k], [], '3T')
+        panel(fig.add_subplot(g[0, 1]), lf[:, :, k], [], '64mT')
+        panel(fig.add_subplot(g[1, 0]), hf[:, :, k], [(a, RED)], '3T label')
+        panel(fig.add_subplot(g[1, 1]), lf[:, :, k], [(b, BLUE)], '64mT label')
+        sd = 2 * (a & b).sum() / max(a.sum() + b.sum(), 1)
+        panel(fig.add_subplot(g[:, 2:]), hf[:, :, k], [(a & ~b, RED), (b & ~a, BLUE), (a & b, PURPLE)],
+              f'slice {k}: overlap, Dice {sd:.2f}')
+    fig.suptitle(title, x=0.01, ha='left', fontsize=10)
+    plt.show()
+
+
+def show_case(regions, mod='T2w', n_slices=4):
     d = dice[(dice.modality == mod) & dice.region.isin(regions)].groupby('pair_id').dice_np.mean()
     pid = (d - d.median()).abs().idxmin()
-    work = DICE / 'work' / 'WMH_SynthSeg_lowres'
-    hf = nib.as_closest_canonical(nib.load(work / f'{pid}_3T_h.nii.gz'))
-    lf = nib.as_closest_canonical(nib.load(work / f'{pid}_64mT_h.nii.gz'))
-    img = nib.load(pairs.loc[pid, 'fix_SynthSeg'].replace('_synthseg.nii.gz', '_resampled.nii.gz'))
-    bg = resample_from_to(img, hf, order=1).get_fdata()
-    bg = (bg / np.percentile(bg, 99)).clip(0, 1)
-    A, B = np.isin(np.asarray(hf.dataobj), ids), np.isin(np.asarray(lf.dataobj), ids)
-
-    xs, ys, _ = np.where((A | B) if zoom else (bg > 0.05))            # crop to structures or head
-    m = 15 if zoom else 0
-    crop = np.s_[max(xs.min() - m, 0):xs.max() + m, max(ys.min() - m, 0):ys.max() + m]
-    z = np.where((A | B).any(axis=(0, 1)))[0]                         # slices containing the structures
-    fig, axes = plt.subplots(1, n_slices, figsize=(4 * n_slices, 4.6))
-    for ax, k in zip(axes, z[np.arange(1, n_slices + 1) * len(z) // (n_slices + 1)]):
-        a, b = A[:, :, k], B[:, :, k]
-        over = np.zeros(a.shape + (4,))
-        over[a & ~b] = [0.85, 0.1, 0.1, 0.7]                          # 3T only: red
-        over[b & ~a] = [0.1, 0.35, 0.9, 0.7]                          # 64mT only: blue
-        over[a & b] = [0.6, 0.2, 0.75, 0.7]                           # both: purple
-        ax.imshow(np.rot90(bg[:, :, k][crop]), cmap='gray')
-        ax.imshow(np.rot90(over[crop]))
-        sd = 2 * (a & b).sum() / max(a.sum() + b.sum(), 1)
-        ax.set_title(f'slice {k}, Dice {sd:.2f}', fontsize=9)
-        ax.axis('off')
-    fig.suptitle(f"{pid.split('__')[0]}: {', '.join(regions)}   (whole-structure Dice {d[pid]:.2f}; R on right)",
-                 x=0.01, ha='left', fontsize=10)
-    plt.tight_layout()
-    plt.show()
+    title = f"{pid.split('__')[0]}: {', '.join(regions)}   (whole-structure Dice {d[pid]:.2f}; R on right)"
+    plot_case(title, regions, *case_images(pid), n_slices=n_slices)
 ```
 
 ### 1. High Dice: thalamus and brainstem
@@ -164,7 +218,7 @@ group_table(HIGH)
 ```
 
 ```{code-cell} ipython3
-show_overlay(HIGH)
+show_case(HIGH)
 ```
 
 Dice is close to 0.9 and the volume bias is small. There is little room left for an enhancement
@@ -180,7 +234,7 @@ group_table(SMALL)
 ```
 
 ```{code-cell} ipython3
-show_overlay(SMALL, zoom=True)
+show_case(SMALL)
 ```
 
 A few voxels make a large difference in both Dice and volume, so results jump between subjects
@@ -194,11 +248,11 @@ group_table(LARGE_LOW)
 ```
 
 ```{code-cell} ipython3
-show_overlay(['Cortex'])
+show_case(['Cortex'])
 ```
 
 ```{code-cell} ipython3
-show_overlay(['CSF'])
+show_case(['CSF'])
 ```
 
 Dice is low (cortex about 0.7, CSF about 0.6) but nearly the same in every subject, so there is
