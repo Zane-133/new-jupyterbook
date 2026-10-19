@@ -218,6 +218,71 @@ assert n == len(pairs), f'{n} / {len(pairs)} transforms'
 print(f'{REG_MODEL}: {n} transforms -> {XFM}')
 ```
 
+### Rigid vs affine
+
+The benchmark reads the Dice and volume differences between 64mT and 3T as differences in image
+quality. This holds only if the 64mT image has the correct size: a geometric error lowers Dice and
+biases volume, and no image enhancement can remove it. Even an enhancement that made the 64mT
+image as good as the 3T image would not reach a Dice of 1. The 64mT images of the new dataset are
+7–10 % smaller than the 3T images (ICV, see Volume), and this follows the scanner software rather
+than the field strength (Discussion). Affine registration removes the size difference before Dice
+is computed, so the remaining Dice difference mainly reflects field strength. One T2w pair (median volume factor): top, the 64mT image after each
+transform; bottom, the same image in red over the 3T image (as Chapter 04). The number is the
+share of the 3T intracranial mask not covered by the moved 64mT mask.
+
+```{code-cell} ipython3
+# Rigid vs affine: one T2w pair, one axial slice
+SLICE_FRAC = 0.6                          # slice height within the 3T brain (0 = bottom, 1 = top)
+pid = 'sub-07_T2w'                        # T2w pair with the median affine volume factor (table below)
+r = pairs.set_index('pair_id').loc[pid]
+
+moved = {}
+for m, xdir in [('rigid', REG / 'xfm'), ('affine', REG / 'xfm_affine')]:
+    lta = xdir / f'{pid}.lta'
+    if not (lta.exists() and lta.stat().st_size > 0):          # rigid transform missing: register this pair only
+        xdir.mkdir(exist_ok=True)
+        fs(f'export OMP_NUM_THREADS={THREADS} && '
+           f'mri_synthmorph register -m {m} -t {lta} {r.mov_raw} {r.fix_raw}',
+           log=LOGS / 'register_new_fig.log', show=False)
+    raw_o, seg_o = WORK / f'{pid}_64mT_raw_{m}.nii.gz', WORK / f'{pid}_64mT_seg_{m}.nii.gz'
+    if not raw_o.exists():
+        fs(f'mri_vol2vol --mov {r.mov_raw} --targ {r.fix_raw} --lta {lta} --trilin --o {raw_o} --no-save-reg',
+           log=LOGS / 'reg_fig.log', show=False)
+    if not seg_o.exists():
+        fs(f'mri_vol2vol --mov {r.mov_seg} --targ {r.fix_raw} --lta {lta} --nearest --o {seg_o} --no-save-reg',
+           log=LOGS / 'reg_fig.log', show=False)
+    moved[m] = (nib.as_closest_canonical(nib.load(raw_o)).get_fdata(),
+                np.asarray(nib.as_closest_canonical(nib.load(seg_o)).dataobj) > 0)
+
+fix = nib.as_closest_canonical(nib.load(r.fix_raw))
+brain3 = np.asarray(resample_from_to(nib.load(r.fix_seg), fix, order=0).dataobj) > 0   # 3T intracranial mask
+norm = lambda x: (x / np.percentile(x[x > 0], 99)).clip(0, 1)
+z = np.where(brain3.any(axis=(0, 1)))[0]
+k = z[int(SLICE_FRAC * (len(z) - 1))]
+xs, ys = np.where(brain3.any(axis=2))
+crop = np.s_[max(xs.min() - 10, 0):xs.max() + 10, max(ys.min() - 10, 0):ys.max() + 10]
+sl = lambda v: np.rot90(v[:, :, k][crop])
+t3 = norm(fix.get_fdata())
+
+fig, axes = plt.subplots(2, 2, figsize=(9, 9.6))
+for j, m in enumerate(['rigid', 'affine']):
+    img, brain6 = moved[m]
+    miss = (brain3 & ~brain6).sum() / brain3.sum()             # 3T brain not covered by 64mT
+    lf = sl(norm(img))
+    axes[0, j].imshow(lf, cmap='gray', vmin=0, vmax=1)
+    axes[0, j].set_title(f'64mT after {m}', fontsize=10)
+    red = np.zeros(lf.shape + (4,))                            # the top image in red, as Chapter 04
+    red[..., 0], red[..., 3] = 1, 0.6 * lf
+    axes[1, j].imshow(sl(t3), cmap='gray', vmin=0, vmax=1)
+    axes[1, j].imshow(red)
+    axes[1, j].set_title(f'3T (gray) + 64mT (red), {m}\n3T brain not covered: {miss:.1%}', fontsize=10)
+for ax in axes.flat:
+    ax.axis('off')
+fig.suptitle(f'{pid}, axial slice {k} (R on right)', x=0.01, ha='left', fontsize=10)
+plt.tight_layout()
+plt.show()
+```
+
 Scaling in each transform: how much the 64mT image is stretched along its R, A and S axes to
 fit the 3T image, and the volume factor (determinant). 1.00 = no scaling; above 1 = the 64mT
 image is smaller than the 3T image. For a rigid transform all are 1.00.
@@ -360,6 +425,24 @@ def plot_dist(d, value, ylabel, ylim, title, zero=False):
 plot_dist(d17, 'dice_np', 'Dice', (0, 1), 'New dataset, 64mT vs 3T:')
 ```
 
+Rigid vs affine: median Dice per region and sequence. Same segmentations, only the transform that
+moves the 64mT label map differs, so `gain` (affine − rigid) is the Dice lost to the size
+difference alone.
+
+```{code-cell} ipython3
+dice_reg = {}
+for m, s in [('rigid', ''), ('affine', '_affine')]:
+    f = DICE / f'dice_WMH_SynthSeg{s}.csv'
+    assert f.exists(), f"{f.name} missing: run this chapter once with REG_MODEL = '{m}'"
+    dice_reg[m] = pd.read_csv(f)
+both = pd.concat(dice_reg, names=['reg']).reset_index(level=0)
+med = (both[both.region.isin(LABEL)]
+       .groupby(['region', 'modality', 'reg']).dice_np.median().unstack('reg'))
+med['gain'] = med.affine - med.rigid
+med = med.unstack('modality').swaplevel(axis=1)
+med.loc[SIZE_ORDER, [(m, c) for m in MODS for c in ['rigid', 'affine', 'gain']]].round(2)
+```
+
 ## Volume
 
 As Chapter 06: bias (%) = (64mT − 3T) / 3T × 100, from `volumes_main.csv`; left/right summed,
@@ -413,9 +496,10 @@ def bias_table(b, regions):
 bias_table(bias_new, SIZE_ORDER + ['ICV'])
 ```
 
-The same bias after removing the scaling of each pair's transform (64mT volume × volume factor
-above). With rigid registration nothing changes. If the shrinkage is uniform, ICV should move to
-about 0 %.
+Volume is measured on each scan without registration, so the table above is the same under rigid
+and affine registration and contains the full size difference. Below, the same bias after removing
+the scaling of each pair's transform (64mT volume × volume factor above); for a rigid transform the
+factor is 1 and nothing changes. If the shrinkage is uniform, ICV should move to about 0 %.
 
 ```{code-cell} ipython3
 vf = scale.set_index(['subject', 'modality']).volume
@@ -637,11 +721,19 @@ same way:
   64mT-only voxels the inner rim, all around the brain: a uniform shrinkage, not a local
   boundary error.
 
-The cause is not known yet (scanner geometry or the voxel size written into the image header are
-candidates) and is checked separately on the images and the scanner settings.
+**The shrinkage follows the scanner software, not the field strength.** All new 64mT scans were
+made with Hyperfine software 9.0.1. In the old dataset (another Hyperfine scanner), 58 of 61 scans
+were made with software 8.7 and agree with 3T (one repeated FLAIR, sub-0048 run-2, is −7 %); the
+other three, sub-0064 with software 9.0 on the
+same scanner and against the same 3T scanner, have an ICV 3–7 % lower (FLAIR / T1w / T2w −6 / −3 /
+−7 %), like the new dataset. The voxel sizes in the NIfTI headers match the DICOM headers, so the
+conversion is not the cause. This rests on one old subject, and the mechanism (for example the
+gradient calibration or distortion correction of software 9) is not confirmed. Whatever its
+cause, a global size error cannot be seen in a single image, since head size varies more than
+this between people, so an enhancement method cannot correct it.
 
 **Affine registration removes most of the gap to the old dataset.** Cortex Dice rises from
-0.58 / 0.57 / 0.60 (T2w / T1w / FLAIR, rigid) to 0.69 / 0.64 / 0.67, CSF from 0.40 / 0.44 / 0.45 to
+0.58 / 0.57 / 0.60 (T2w / T1w / FLAIR, rigid; table in Dice) to 0.69 / 0.64 / 0.67, CSF from 0.40 / 0.44 / 0.45 to
 0.57 / 0.54 / 0.56; the old dataset has 0.74 / 0.70 / 0.71 and 0.60 / 0.58 / 0.57. The remaining
 difference of 0.01–0.06 is largest on T1w, where the new 3T scan has a different contrast (MP2RAGE
 INV2). The higher resolution of the new 3T reference is a less likely cause: on the old dataset,
