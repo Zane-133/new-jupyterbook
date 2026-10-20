@@ -68,6 +68,50 @@ Registration has been checked (Chapter 04), so the two label maps are aligned. T
 So volume alone can hide a gap that Dice shows. Dice also depends on the structure itself: its
 size, and how much of it lies on a boundary.
 
+The first point sets an upper limit. If the 64mT map is (1 + b) times the 3T map, the overlap is
+at most the smaller map, so Dice ≤ 2 · min(1, 1 + b) / (2 + b) (dashed line). Each point below is
+one region: median volume bias (Chapter 06) and median Dice of 11 subjects, bars = Q1–Q3.
+
+```{code-cell} ipython3
+def plot_bias_dice():
+    q = [0.25, 0.5, 0.75]
+    d = subj[subj.region.isin(LABEL)].groupby(['modality', 'region']).dice_np.quantile(q).unstack()
+    b = bias[bias.region.isin(LABEL)].groupby(['modality', 'region']).pct_diff.quantile(q).unstack()
+    t = d.join(b, lsuffix='_d', rsuffix='_b').reset_index()
+    x = np.linspace(-60, 60, 241)
+    bound = 2 * np.minimum(1, 1 + x / 100) / (2 + x / 100)
+    fig, axes = plt.subplots(1, 3, figsize=(20, 7), sharex=True, sharey=True)
+    for ax, mod in zip(axes, MODS):
+        s = t[t.modality == mod]
+        ax.plot(x, bound, '--', color='grey', lw=1, label='highest Dice possible\nfor this volume difference')
+        ax.axvline(0, color='black', lw=0.8)
+        ax.errorbar(s['0.5_b'], s['0.5_d'], xerr=[s['0.5_b'] - s['0.25_b'], s['0.75_b'] - s['0.5_b']],
+                    yerr=[s['0.5_d'] - s['0.25_d'], s['0.75_d'] - s['0.5_d']],
+                    fmt='o', ms=5, color='#2a78d6', lw=1, capsize=2)
+        for _, r in s.iterrows():
+            ax.annotate(r.region, (r['0.5_b'], r['0.5_d']), xytext=(5, 2), textcoords='offset points', fontsize=8)
+        ax.set(title=mod, xlim=(-60, 60), ylim=(0.5, 1), xlabel='Volume bias %, 64mT vs 3T lowres')
+        ax.grid(alpha=0.3)
+        ax.spines[['top', 'right']].set_visible(False)
+    axes[0].set_ylabel('Dice, 64mT vs 3T lowres')
+    axes[0].legend(loc='lower left', fontsize=8)
+    fig.suptitle('WMH-SynthSeg: volume bias vs Dice (median of 11 subjects, bars = Q1–Q3)', x=0.01, ha='left')
+    plt.tight_layout()
+    plt.show()
+
+
+plot_bias_dice()
+```
+
+Overall the two measures agree: no region with a high Dice has a large volume bias, and the
+regions with a large bias have a low Dice. Two exceptions stand out:
+
+- **CSF** has a small bias (+6 to +12 %) but the lowest Dice (about 0.6), far below the line: the
+  two maps have nearly the same size but disagree on where the boundary is.
+- **3rd and 4th ventricle on FLAIR** have the largest biases, in opposite directions (about −33 %
+  and +35 %), and a Dice near 0.6. A global size error would shift both the same way, so this
+  points to errors at these structures on FLAIR.
+
 ## Structure size and Dice
 
 Each point is one region: median Dice of 11 subjects, bar = Q1–Q3 (spread between subjects);
