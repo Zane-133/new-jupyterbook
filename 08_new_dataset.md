@@ -316,6 +316,7 @@ for r in pairs.itertuples():
     sR, sA, sS = np.linalg.norm(L, axis=0)           # stretch of the 64mT R, A, S axes
     rows.append(dict(subject=r.subject, modality=r.modality, R=sR, A=sA, S=sS, volume=np.linalg.det(L)))
 scale = pd.DataFrame(rows)
+scale.to_csv(REG / f'scale_factors{SUFFIX}.csv', index=False)  # per pair; used for the corrected volume below
 (scale.groupby('modality')[['R', 'A', 'S', 'volume']]
  .agg(lambda x: f'{x.median():.3f} [{x.min():.3f}, {x.max():.3f}]').loc[MODS])
 ```
@@ -508,6 +509,8 @@ vf = scale.set_index(['subject', 'modality']).volume
 lf_corr = lf.mul(vf.reindex(lf.index), axis=0)
 bias_corr = (((lf_corr - hf.reindex(lf.index)) / hf.reindex(lf.index) * 100)
              .reset_index().melt(id_vars=key, var_name='region', value_name='pct_diff'))
+bias_corr.to_csv(VOL / f'bias_long_corrected{SUFFIX}.csv', index=False)
+print(f"-> {REG / f'scale_factors{SUFFIX}.csv'}\n-> {VOL / f'bias_long_corrected{SUFFIX}.csv'}")
 bias_table(bias_corr, SIZE_ORDER + ['ICV'])
 ```
 
