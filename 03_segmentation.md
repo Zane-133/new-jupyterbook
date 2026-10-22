@@ -186,10 +186,6 @@ WMH_REPO, MODEL = P['wmh_code'], P['wmh_model']
 INF = WMH_REPO / 'WMHSynthSeg' / 'inference.py'
 COMMIT = '2bf9a42'
 
-# is_available() does not start CUDA in this kernel, so the whole GPU stays free for inference.py
-assert torch.cuda.is_available(), 'no GPU: start Neurodesk on the A40 server'
-sh('nvidia-smi --query-gpu=name,memory.total --format=csv,noheader')
-
 if not INF.exists():
     sh(f'git clone -q https://github.com/lasopablo/freesurfer-freesurfer-dev-mri_WMHsynthseg.git {WMH_REPO} '
        f'&& git -C {WMH_REPO} checkout -q {COMMIT}')
@@ -326,6 +322,10 @@ WMH.mkdir(parents=True, exist_ok=True)
 todo = [r for r in scans.to_dict('records') if not seg_path(OLD_OUT, 'WMH_SynthSeg', r).exists()]
 if todo:
     print(f'{len(todo)} scans to segment')
+    # GPU only needed here; with all label maps present the chapter runs on CPU.
+    # is_available() does not start CUDA in this kernel, so the whole GPU stays free for inference.py
+    assert torch.cuda.is_available(), 'no GPU: start Neurodesk on the A40 server'
+    sh('nvidia-smi --query-gpu=name,memory.total --format=csv,noheader')
     stage, segout = WORK / 'WMH_SynthSeg' / 'stage', WORK / 'WMH_SynthSeg' / 'segout'
     for d in (stage, segout):
         shutil.rmtree(d, ignore_errors=True)

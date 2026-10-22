@@ -5,6 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
+    jupytext_version: 1.19.5
 kernelspec:
   display_name: Python [conda env:lfbook]
   language: python
@@ -94,7 +95,6 @@ staging and in the volume table. Label maps: `seg/WMH_SynthSeg/{3T,64mT}/<sub>/<
 WMH_REPO, MODEL = P['wmh_code'], P['wmh_model']
 INF = WMH_REPO / 'WMHSynthSeg' / 'inference.py'
 assert INF.exists() and MODEL.exists(), 'WMH-SynthSeg code or model missing: run Chapter 03 first'
-assert torch.cuda.is_available(), 'no GPU: start Neurodesk on the A40 server'
 
 # one row per scan: 3T = fixed side of the pairs, 64mT = moving side
 scans = pd.concat([pd.DataFrame({'id': f'{field}_' + pairs.pair_id, 'scan': pairs.pair_id, 'fs': field,
@@ -139,6 +139,8 @@ LOG = LOGS / 'wmh_synthseg_new.log'
 todo = [r for r in scans.to_dict('records') if not os.path.exists(r['seg'])]
 if todo:
     print(f'{len(todo)} scans to segment')
+    # GPU only needed here; with all label maps present the chapter runs on CPU
+    assert torch.cuda.is_available(), 'no GPU: start Neurodesk on the A40 server'
     stage, segout = WORK / 'WMH_SynthSeg_new' / 'stage', WORK / 'WMH_SynthSeg_new' / 'segout'
     for d in (stage, segout):
         shutil.rmtree(d, ignore_errors=True)
