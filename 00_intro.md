@@ -15,8 +15,8 @@ kernelspec:
 Low-field (64mT) and high-field (3T) scans of the same subjects are segmented, registered and
 compared by Dice and regional volume.
 
-The book runs on the Neurodesk GPU server (NVIDIA A40) from start to end: `jupyter-book build`
-executes the chapters in order. Every chapter saves its results to
+The book runs on Neurodesk from start to end: segmentation (WMH-SynthSeg) on the NVIDIA A40
+GPU, all other computations on the CPU. `jupyter-book build` executes the chapters in order. Every chapter saves its results to
 `~/neurodesktop-storage/lfbook/results/` as soon as they are computed; finished steps are skipped
 on a re-run.
 

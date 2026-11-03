@@ -5,6 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
+    jupytext_version: 1.19.5
 kernelspec:
   display_name: Python [conda env:lfbook]
   language: python
@@ -13,7 +14,8 @@ kernelspec:
 
 # Environment
 
-The book runs on the Neurodesk GPU server (NVIDIA A40). Nothing is installed here: FreeSurfer
+The book runs on Neurodesk: segmentation (WMH-SynthSeg) on the NVIDIA A40 GPU, all other
+computations on the CPU. Nothing is installed here: FreeSurfer
 comes from the Neurodesk module, the Python packages (PyTorch included) from the `lfbook`
 environment. The cells
 below check that the tools and the input data are in place; later chapters assume they are.

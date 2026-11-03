@@ -1,7 +1,7 @@
 # Runnable book: LF vs HF brain volume
 
 The `.md` chapters are the source; `jupyter-book build` executes them in order. The book runs on
-the Neurodesk GPU server (NVIDIA A40).
+Neurodesk: segmentation (WMH-SynthSeg) on the NVIDIA A40 GPU, all other computations on the CPU.
 
 ## Before the first run
 
